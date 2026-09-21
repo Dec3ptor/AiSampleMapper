@@ -30,9 +30,22 @@ jobs:
           git diff --exit-code artifact.html \
             || { echo "::error::artifact.html is stale — run 'node tools/build-artifact.mjs' and commit it."; exit 1; }
 
-      - uses: actions/configure-pages@v5
+      # enablement only works if the workflow token may create the Pages site.
+      # On most repositories it may not, so fail with instructions rather than
+      # an opaque "Resource not accessible by integration".
+      - id: pages
+        uses: actions/configure-pages@v5
+        continue-on-error: true
         with:
           enablement: true
+
+      - name: Explain how to turn Pages on
+        if: steps.pages.outcome == 'failure'
+        run: |
+          echo "::error title=GitHub Pages is not enabled::Turn it on once at \
+          Settings -> Pages -> Build and deployment -> Source: GitHub Actions, \
+          then re-run this workflow. Everything else here is ready."
+          exit 1
 
       - uses: actions/upload-pages-artifact@v3
         with:
