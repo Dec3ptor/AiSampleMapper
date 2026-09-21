@@ -108,6 +108,55 @@ To rename one thing: click it in the list or on the map and edit the **Name** or
 **ID** box, use the pencil on any list row, press <kbd>F2</kbd>, or double-click
 it on the map.
 
+## Field mode
+
+**Field** in the top bar swaps the planning panels for a collection screen:
+big targets, a running count, and an arrow to the next sample.
+
+**Progress and pace.** A bar across the top shows done / total, how many are
+left, and a rate in samples per hour worked out from the times you actually
+ticked them off — a rolling window of the last six, so a slow start finding the
+site doesn't drag the estimate down all afternoon. From that it gives time
+remaining and a finish clock. The rate appears once two are done.
+
+**Getting to the point.** The arrow in the corner card points at the sample
+you're walking to, with the distance and the ID. Tap **Compass** once and the
+arrow points relative to the way you're facing; without it, it points relative
+to north. Tap any marker on the map to walk to that one instead, or **Next** to
+take the closest outstanding one.
+
+**Your position** is the blue dot, drawn with the accuracy circle the phone
+reports. Worth being honest about: a phone GPS is good to roughly 3–10 m, while
+the orthophoto behind it is good to about 0.27 m. The arrow gets you to the
+right stockpile, not to the right shovel-width — which is why the accuracy
+circle is drawn at its real size rather than hidden.
+
+**Changing the plan on site:**
+
+| Button | What it does |
+| --- | --- |
+| Collected | Marks it done and stamps the time the rate is built from |
+| No access | Marks it skipped and records why |
+| Move here | Moves the sample to where you're standing, recording the GPS accuracy |
+| Add here | Drops a new sample at your position |
+
+**Move here** is the one that matters most: when the marked spot turns out to be
+under a truck, you sample nearby and the plan records where you *actually* went,
+with the fix accuracy alongside it.
+
+### Offline and installing it
+
+The site registers a service worker, so once loaded it works with no coverage —
+which is the normal state of a stockpile site. On iOS open it in Safari and use
+Share → **Add to Home Screen**; on Android, Chrome's **Install app**. It then
+runs full-screen with no browser chrome, and keeps the screen awake while you're
+in field mode.
+
+Two requirements: GPS needs **HTTPS**, which the GitHub Pages link is, and the
+image must be **georeferenced** (see Scale & georeference) or there is nothing to
+tie your position to. Everything else — progress, rate, marking off — works
+without GPS.
+
 ## Composite samples
 
 A composite is one laboratory sample, with one ID, built from material taken at
@@ -191,6 +240,8 @@ positional accuracy of the source imagery.
 | `Ctrl`/`Cmd` `S` | Save the project file |
 | Drag, scroll | Pan, zoom. `Alt` or `Shift` drag pans with any tool |
 
+Field mode is touch-first and has no shortcuts; everything is a button.
+
 ## The example site
 
 The app opens on an example: a clipping of Bay of Plenty Regional Council
@@ -228,7 +279,10 @@ js/plan.js                 volumes, density rules, QA/QC requirements
 js/store.js                project state, ids, undo, persistence
 js/render.js               canvas drawing, shared by the map and the figure
 js/export.js               CSV, GeoJSON, KML, PNG figure, project file
+js/field.js                on-site mode: GPS, progress, rate, field edits
 js/app.js                  interaction, panels, wiring
+sw.js                      offline shell, so the site works with no coverage
+manifest.webmanifest       makes it installable to a home screen
 tools/build-artifact.mjs   emits artifact.html for publishing as a Claude Artifact
 sample/site-aerial.jpg     the example aerial clipping
 docs/                      imagery survey report

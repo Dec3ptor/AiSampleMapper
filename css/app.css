@@ -681,3 +681,186 @@ button, input, select, textarea { font: inherit; color: inherit; }
   .summary { grid-template-columns: 1fr; }
   .brand-name { font-size: 14px; }
 }
+
+/* ============================================================
+   Field mode — read at arm's length, in sun, with one thumb.
+   Deliberately dark in both themes: the map is dark, and dark
+   chrome keeps the photo the brightest thing on screen.
+   ============================================================ */
+
+:root[data-mode="field"] .topbar,
+:root[data-mode="field"] .rail,
+:root[data-mode="field"] .panel,
+:root[data-mode="field"] .statusbar { display: none !important; }
+
+/* Take the map out of the planning grid entirely rather than trying to make
+   that grid behave with every other row hidden: in field mode it simply owns
+   the viewport, with the overlay above it. */
+:root[data-mode="field"] .stage {
+  position: fixed;
+  inset: 0;
+  z-index: 1;
+}
+:root[data-mode="field"] .zoomctl { bottom: 188px; }
+:root[data-mode="field"] .hud { display: none; }
+
+.field {
+  --f-ink: #F2F6F4;
+  --f-dim: #9EAFA9;
+  --f-panel: rgba(13, 19, 17, .93);
+  --f-line: rgba(255, 255, 255, .13);
+  --f-gps: #38BDF8;
+  --f-done: #34C77B;
+  --f-warn: #F0A63C;
+
+  position: fixed;
+  inset: 0;
+  z-index: 30;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  pointer-events: none;
+  padding-top: env(safe-area-inset-top, 0px);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+  font-family: Barlow, system-ui, sans-serif;
+}
+.field > * { pointer-events: auto; }
+
+/* --- progress strip --- */
+.field-top {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  background: var(--f-panel);
+  border-bottom: 1px solid var(--f-line);
+  backdrop-filter: blur(8px);
+}
+
+.fprog { flex: 1; min-width: 0; display: grid; gap: 5px; }
+.fprog-bar {
+  height: 7px;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, .14);
+  overflow: hidden;
+}
+.fprog-bar span {
+  display: block;
+  height: 100%;
+  width: 0%;
+  border-radius: 4px;
+  background: linear-gradient(90deg, var(--f-done), #6FE0A6);
+  transition: width .35s ease;
+}
+.fprog-row {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;            /* two short lines beat one clipped one */
+  gap: 1px 10px;
+  font-family: "IBM Plex Mono", ui-monospace, monospace;
+  font-size: 12px;
+  color: var(--f-dim);
+}
+.fprog-row b {
+  font-size: 15px;
+  color: var(--f-ink);
+  font-variant-numeric: tabular-nums;
+}
+.fprog-row span { white-space: nowrap; }
+#fpRate { color: var(--f-done); }
+
+/* --- navigation card --- */
+.navcard {
+  align-self: flex-start;
+  margin: 0 10px 10px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px 10px 11px;
+  border-radius: 14px;
+  background: var(--f-panel);
+  border: 1px solid var(--f-line);
+  box-shadow: 0 8px 28px rgba(0, 0, 0, .4);
+  backdrop-filter: blur(8px);
+  max-width: min(420px, calc(100% - 20px));
+}
+.navcard.is-close { border-color: var(--f-done); box-shadow: 0 0 0 2px rgba(52, 199, 123, .35); }
+
+.navarrow {
+  width: 42px; height: 42px;
+  flex: none;
+  color: var(--f-gps);
+  transition: transform .25s ease-out;
+  filter: drop-shadow(0 1px 3px rgba(0, 0, 0, .5));
+}
+.navarrow.is-idle { color: #55655F; }
+
+.navtext { min-width: 0; display: grid; gap: 1px; flex: 1; }
+.navtext b {
+  font-size: 17px; font-weight: 700; color: var(--f-ink);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.navtext span {
+  font-size: 11.5px; color: var(--f-dim);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+
+.navdist { text-align: right; flex: none; display: grid; gap: 1px; }
+.navdist b {
+  font-family: "IBM Plex Mono", ui-monospace, monospace;
+  font-size: 19px; font-weight: 600; color: var(--f-ink);
+  font-variant-numeric: tabular-nums;
+}
+.navdist small { font-size: 10.5px; color: var(--f-dim); white-space: nowrap; }
+
+/* --- action bars --- */
+.field-foot {
+  background: var(--f-panel);
+  border-top: 1px solid var(--f-line);
+  backdrop-filter: blur(8px);
+  padding: 9px 10px calc(9px + env(safe-area-inset-bottom, 0px));
+  display: grid;
+  gap: 7px;
+}
+.field-bar { display: flex; gap: 7px; }
+.field-bar > .fbtn { flex: 1; }
+
+.fbtn {
+  appearance: none;
+  border: 1px solid var(--f-line);
+  background: rgba(255, 255, 255, .07);
+  color: var(--f-ink);
+  min-height: 54px;
+  padding: 0 14px;
+  border-radius: 11px;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+  white-space: nowrap;
+  -webkit-tap-highlight-color: transparent;
+}
+.fbtn:active { transform: scale(.975); }
+
+.fbtn-done { background: var(--f-done); border-color: var(--f-done); color: #062615; flex: 1.7 !important; font-size: 17px; }
+.fbtn-warn { color: var(--f-warn); }
+.fbtn-ghost { color: var(--f-dim); }
+.fbtn-sm { min-height: 42px; font-size: 13.5px; font-weight: 500; color: var(--f-dim); }
+.fbtn-exit { min-height: 40px; padding: 0 12px; font-size: 14px; flex: none; }
+.fbtn-icon { min-height: 40px; width: 44px; padding: 0; flex: none; color: var(--f-dim); }
+.fbtn-icon svg { width: 19px; height: 19px; }
+.fbtn-icon.is-on { color: var(--f-gps); background: rgba(56, 189, 248, .16); border-color: rgba(56, 189, 248, .4); }
+
+.field-bar-sec .fbtn { background: transparent; }
+
+/* The Field entry button in the normal top bar. */
+.btn-field { border-color: var(--accent); color: var(--accent); font-weight: 600; }
+.btn-field:hover { background: var(--accent-soft); }
+
+@media (max-width: 420px) {
+  .navdist b { font-size: 17px; }
+  .navtext b { font-size: 15.5px; }
+  .fbtn { font-size: 15px; min-height: 50px; }
+  .fbtn-done { font-size: 16px; }
+}

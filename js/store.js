@@ -251,8 +251,10 @@
       depthFrom: p.settings.defaultDepthFrom,
       depthTo: p.settings.defaultDepthTo,
       matrix: 'Soil',
-      status: 'planned',
+      status: 'planned',      // planned | collected | skipped
       collectedDate: '',
+      collectedAt: null,      // epoch ms, what the field rate is worked out from
+      gpsAccuracy: null,      // metres, when the position came from a phone fix
       notes: ''
     };
     p.samples.push(s);
@@ -378,6 +380,58 @@
     };
   }
 
+  /* --- Field progress ----------------------------------------------------
+   * Rate comes from a rolling window of the most recent completions, not the
+   * whole day: a slow start while you find the site should not drag the
+   * estimate down for the rest of the afternoon. */
+  function progress(windowSize) {
+    var list = state.project.samples;
+    var done = 0, skipped = 0;
+    var times = [];
+    list.forEach(function (s) {
+      if (s.status === 'collected') {
+        done++;
+        if (s.collectedAt) times.push(s.collectedAt);
+      } else if (s.status === 'skipped') {
+        skipped++;
+      }
+    });
+    var left = list.length - done - skipped;
+
+    times.sort(function (a, b) { return a - b; });
+    var perHour = null;
+    var win = times.slice(-(windowSize || 6));
+    if (win.length >= 2) {
+      var hours = (win[win.length - 1] - win[0]) / 3600000;
+      if (hours > 0) perHour = (win.length - 1) / hours;
+    }
+
+    var etaHours = (perHour && left > 0) ? left / perHour : null;
+    return {
+      total: list.length,
+      done: done,
+      skipped: skipped,
+      left: left,
+      perHour: perHour,
+      etaHours: etaHours,
+      finishAt: etaHours != null ? new Date(Date.now() + etaHours * 3600000) : null,
+      lastAt: times.length ? times[times.length - 1] : null
+    };
+  }
+
+  /** Mark one sample done, stamping the time the rate is derived from. */
+  function markCollected(s, when) {
+    if (!s) return null;
+    var t = when || Date.now();
+    s.status = 'collected';
+    s.collectedAt = t;
+    var d = new Date(t);
+    s.collectedDate = d.getFullYear() + '-' +
+      String(d.getMonth() + 1).padStart(2, '0') + '-' +
+      String(d.getDate()).padStart(2, '0');
+    return s;
+  }
+
   /* --- Persistence ------------------------------------------------------- */
   function saveLocal() {
     try {
@@ -491,7 +545,7 @@
     addSample: addSample, sampleById: sampleById, removeSample: removeSample, pileAt: pileAt,
     syncComposite: syncComposite, addIncrement: addIncrement, removeIncrement: removeIncrement,
     moveSample: moveSample,
-    recode: recode, totals: totals,
+    recode: recode, totals: totals, progress: progress, markCollected: markCollected,
     saveLocal: saveLocal, loadLocal: loadLocal, clearLocal: clearLocal,
     saveImageBlob: saveImageBlob, loadImageBlob: loadImageBlob, clearImageBlob: clearImageBlob,
     todayISO: todayISO

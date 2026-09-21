@@ -284,6 +284,87 @@
     ctx.textAlign = 'left';
   }
 
+  /* --- Field position ------------------------------------------------------ */
+
+  /** Your own position, with the accuracy the phone reports drawn honestly. */
+  function drawFix(ctx, view, fix) {
+    var p = toScreen(view, fix.px, fix.py);
+    var TAU = Math.PI * 2;
+
+    if (fix.accuracyPx > 0) {
+      var r = fix.accuracyPx * view.scale;
+      if (r > 4) {
+        ctx.beginPath();
+        ctx.arc(p[0], p[1], r, 0, TAU);
+        ctx.fillStyle = 'rgba(56,189,248,0.14)';
+        ctx.fill();
+        ctx.strokeStyle = 'rgba(56,189,248,0.5)';
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+      }
+    }
+
+    if (fix.headingDeg != null && isFinite(fix.headingDeg)) {
+      var a = (fix.headingDeg - 90) * Math.PI / 180;
+      var spread = 0.42;
+      ctx.beginPath();
+      ctx.moveTo(p[0], p[1]);
+      ctx.arc(p[0], p[1], 26, a - spread, a + spread);
+      ctx.closePath();
+      var grad = ctx.createRadialGradient(p[0], p[1], 4, p[0], p[1], 26);
+      grad.addColorStop(0, 'rgba(56,189,248,0.55)');
+      grad.addColorStop(1, 'rgba(56,189,248,0)');
+      ctx.fillStyle = grad;
+      ctx.fill();
+    }
+
+    ctx.beginPath();
+    ctx.arc(p[0], p[1], 8.5, 0, TAU);
+    ctx.fillStyle = 'rgba(8,12,10,0.5)';
+    ctx.fill();
+    ctx.beginPath();
+    ctx.arc(p[0], p[1], 6.5, 0, TAU);
+    ctx.fillStyle = '#38BDF8';
+    ctx.fill();
+    ctx.lineWidth = 2.5;
+    ctx.strokeStyle = '#FFFFFF';
+    ctx.stroke();
+  }
+
+  /** The run from where you are to the sample you are walking to. */
+  function drawRoute(ctx, view, fromPx, fromPy, toPx, toPy) {
+    var a = toScreen(view, fromPx, fromPy);
+    var b = toScreen(view, toPx, toPy);
+    ctx.save();
+    ctx.setLineDash([9, 6]);
+    ctx.beginPath();
+    ctx.moveTo(a[0], a[1]);
+    ctx.lineTo(b[0], b[1]);
+    ctx.strokeStyle = 'rgba(8,12,10,0.6)';
+    ctx.lineWidth = 5;
+    ctx.stroke();
+    ctx.strokeStyle = '#38BDF8';
+    ctx.lineWidth = 2.5;
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  /** Ring the sample currently being walked to so it reads at arm's length. */
+  function drawTargetRing(ctx, view, px, py, phase) {
+    var p = toScreen(view, px, py);
+    var pulse = 15 + 5 * Math.sin(phase / 380);
+    ctx.beginPath();
+    ctx.arc(p[0], p[1], pulse, 0, Math.PI * 2);
+    ctx.strokeStyle = '#38BDF8';
+    ctx.lineWidth = 3;
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.arc(p[0], p[1], pulse + 2.5, 0, Math.PI * 2);
+    ctx.strokeStyle = 'rgba(8,12,10,0.45)';
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+  }
+
   /* --- Whole scene -------------------------------------------------------- */
 
   function drawScene(ctx, o) {
@@ -398,6 +479,9 @@
     fitView: fitView,
     zoomAt: zoomAt,
     drawScene: drawScene,
+    drawFix: drawFix,
+    drawRoute: drawRoute,
+    drawTargetRing: drawTargetRing,
     drawScaleBar: drawScaleBar,
     drawNorthArrow: drawNorthArrow,
     northAngle: northAngle,

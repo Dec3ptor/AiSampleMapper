@@ -9,6 +9,12 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Barlow:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
 <link rel="stylesheet" href="css/app.css">
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#15201C">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Sample Mapper">
 </head>
 <body>
 <div class="app">
@@ -33,6 +39,7 @@
       </button>
       <button class="btn" id="btnImage" type="button">Aerial image</button>
       <button class="btn" id="btnOpen" type="button">Open</button>
+      <button class="btn btn-field" id="btnField" type="button" title="On-site collection mode">Field</button>
       <button class="btn btn-primary" id="btnSave" type="button">Save project</button>
       <button class="btn btn-icon" id="btnTheme" type="button" title="Switch light / dark" aria-label="Switch light or dark theme">
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a9 9 0 1 0 9 9 7 7 0 0 1-9-9Z" fill="currentColor"/></svg>
@@ -199,6 +206,7 @@
               <button class="seg-btn is-active" data-filter="all" type="button">All</button>
               <button class="seg-btn" data-filter="planned" type="button">Planned</button>
               <button class="seg-btn" data-filter="collected" type="button">Collected</button>
+              <button class="seg-btn" data-filter="skipped" type="button">Skipped</button>
               <button class="seg-btn" data-filter="qa" type="button">QA</button>
             </div>
             <div class="list list-tall" id="sampleList"></div>
@@ -374,6 +382,54 @@
     </aside>
   </div>
 
+  <!-- ============ FIELD MODE ============ -->
+  <div class="field" id="fieldUI" hidden>
+    <header class="field-top">
+      <button class="fbtn fbtn-exit" id="fieldExit" type="button">Exit</button>
+      <div class="fprog">
+        <div class="fprog-bar"><span id="fpFill"></span></div>
+        <div class="fprog-row">
+          <b id="fpDone">0/0</b>
+          <span id="fpLeft">— left</span>
+          <span id="fpRate">—/hr</span>
+          <span id="fpEta">—</span>
+        </div>
+      </div>
+      <button class="fbtn fbtn-icon is-on" id="fieldFollow" type="button" aria-label="Follow my position">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4" fill="currentColor"/>
+          <circle cx="12" cy="12" r="8.4" fill="none" stroke="currentColor" stroke-width="1.7"/>
+          <path d="M12 1.2v3M12 19.8v3M1.2 12h3M19.8 12h3" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>
+      </button>
+    </header>
+
+    <div class="navcard" id="navCard">
+      <svg class="navarrow" id="navArrow" viewBox="0 0 40 40" aria-hidden="true">
+        <path d="M20 2.5 33.5 36 20 28.2 6.5 36Z" fill="currentColor"/>
+      </svg>
+      <div class="navtext">
+        <b id="navTarget">—</b>
+        <span id="navSub">—</span>
+      </div>
+      <div class="navdist">
+        <b id="navDist">—</b>
+        <small id="navSrc">—</small>
+      </div>
+    </div>
+
+    <div class="field-foot">
+      <div class="field-bar">
+        <button class="fbtn fbtn-warn" id="fieldSkip" type="button">No access</button>
+        <button class="fbtn fbtn-done" id="fieldDone" type="button">Collected</button>
+        <button class="fbtn fbtn-ghost" id="fieldNext" type="button">Next</button>
+      </div>
+      <div class="field-bar field-bar-sec">
+        <button class="fbtn fbtn-sm" id="fieldMove" type="button">Move here</button>
+        <button class="fbtn fbtn-sm" id="fieldAdd" type="button">Add here</button>
+        <button class="fbtn fbtn-sm" id="fieldCompass" type="button">Compass</button>
+      </div>
+    </div>
+  </div>
+
   <footer class="statusbar">
     <span class="st st-coord" id="stCoord">—</span>
     <span class="st" id="stZoom">—</span>
@@ -394,6 +450,7 @@
 <script src="js/store.js"></script>
 <script src="js/render.js"></script>
 <script src="js/export.js"></script>
+<script src="js/field.js"></script>
 <script src="js/app.js"></script>
 </body>
 </html>

@@ -20,9 +20,18 @@
     panelOpen: false
   };
 
-  // Exposed so the interaction state can be inspected from the console.
+  // Exposed so the interaction state can be inspected from the console, and so
+  // the field module can drive the map without reaching into internals.
   ASM.ui = ui;
   ASM.view = view;
+  ASM.app = {
+    requestDraw: requestDraw,
+    centreOn: centreOn,
+    zoomTo: function (px, py, sc) { zoomTo(px, py, sc); },
+    fit: function () { fit(); },
+    toast: function (m, e) { toast(m, e); },
+    afterChange: function () { afterChange(); }
+  };
 
   var el = {};
   var needsDraw = true;
@@ -62,18 +71,37 @@
       project: S.project, image: S.image, ui: ui
     });
 
+    if (ASM.field) ASM.field.drawOverlay(ctx, view);
+
     if (S.image) {
       R.drawScaleBar(ctx, view, S.project.georef, 18, h - 22);
       R.drawNorthArrow(ctx, w - 36, 38, R.northAngle(S.project.georef, S.image.height), 15);
     }
   }
 
-  function tick() { draw(); requestAnimationFrame(tick); }
+  var lastFieldFrame = 0;
+  function tick(now) {
+    // The target ring pulses, so field mode needs a heartbeat — but at about
+    // 10 fps, not 60, because this runs on a phone battery all afternoon.
+    if (ASM.field && ASM.field.isOn() && now - lastFieldFrame > 100) {
+      lastFieldFrame = now;
+      needsDraw = true;
+    }
+    draw();
+    requestAnimationFrame(tick);
+  }
 
   function fit() {
     if (!S.image) return;
     var r = el.stage.getBoundingClientRect();
     R.fitView(view, S.image.width, S.image.height, r.width, r.height, 28);
+    requestDraw();
+  }
+
+  function centreOn(px, py) {
+    var r = el.stage.getBoundingClientRect();
+    view.tx = r.width / 2 - px * view.scale;
+    view.ty = r.height / 2 - py * view.scale;
     requestDraw();
   }
 
@@ -248,6 +276,7 @@
           }
         }
         var s = sampleAt(p[0], p[1]);
+        if (s && ASM.field && ASM.field.isOn()) { ASM.field.onMapPick(s); return; }
         if (s) {
           selectSample(s.id);
           store.checkpoint();
@@ -921,6 +950,7 @@
     list.innerHTML = '';
     var items = p.samples.filter(function (s) {
       if (ui.sampleFilter === 'planned') return s.status === 'planned';
+      if (ui.sampleFilter === 'skipped') return s.status === 'skipped';
       if (ui.sampleFilter === 'collected') return s.status === 'collected';
       if (ui.sampleFilter === 'qa') return s.type === 'duplicate' || s.type === 'split';
       return true;
@@ -1003,7 +1033,7 @@
             return '<option value="' + t.id + '"' + (t.id === s.type ? ' selected' : '') + '>' + esc(t.name) + '</option>';
           }).join('') + '</select></label>' +
         '<label class="field"><span>Status</span><select data-f="status">' +
-          ['planned', 'collected'].map(function (v) {
+          ['planned', 'collected', 'skipped'].map(function (v) {
             return '<option value="' + v + '"' + (v === s.status ? ' selected' : '') + '>' + v + '</option>';
           }).join('') + '</select></label>' +
       '</div>' +
@@ -1426,6 +1456,8 @@
       el.fileWorld.value = '';
     });
     $('btnSave').addEventListener('click', function () { doExport('project'); });
+    $('btnField').addEventListener('click', function () { ASM.field.enter(); });
+    ASM.field.bind();
 
     // Drag and drop
     ['dragenter', 'dragover'].forEach(function (t) {
@@ -1745,6 +1777,13 @@
       renderAll();
     } else {
       loadExample();
+    }
+
+    // Register the offline shell only when served as a real page. Inside an
+    // embedded frame a worker would be pointless and could cache stale files.
+    if (window.top === window.self && 'serviceWorker' in navigator &&
+        /^https?:$/.test(location.protocol)) {
+      navigator.serviceWorker.register('sw.js', { scope: './' }).catch(function () {});
     }
 
     setInterval(function () { if (S.dirty) store.saveLocal(); }, 8000);

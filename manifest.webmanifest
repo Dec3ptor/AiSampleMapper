@@ -1,0 +1,14 @@
+{
+  "name": "Stockpile Sample Mapper",
+  "short_name": "Sample Mapper",
+  "description": "Plan, count and collect contaminated-land stockpile samples on an aerial photo.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#15201C",
+  "theme_color": "#15201C",
+  "icons": [
+    { "src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+  ]
+}
