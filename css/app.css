@@ -704,7 +704,9 @@ button, input, select, textarea { font: inherit; color: inherit; }
 :root[data-mode="field"] .zoomctl { bottom: 188px; }
 :root[data-mode="field"] .hud { display: none; }
 
-.field {
+/* Named apart from .field, the form-field wrapper: the two collided, and
+   `.field select` was styling this overlay's dropdowns as panel inputs. */
+.fieldmode {
   --f-ink: #F2F6F4;
   --f-dim: #9EAFA9;
   --f-panel: rgba(13, 19, 17, .93);
@@ -724,7 +726,7 @@ button, input, select, textarea { font: inherit; color: inherit; }
   padding-bottom: env(safe-area-inset-bottom, 0px);
   font-family: Barlow, system-ui, sans-serif;
 }
-.field > * { pointer-events: auto; }
+.fieldmode > * { pointer-events: auto; }
 
 /* --- progress strip --- */
 .field-top {
@@ -888,7 +890,7 @@ button, input, select, textarea { font: inherit; color: inherit; }
     color: #16211D;
   }
   body > .app,
-  body > .field,
+  body > .fieldmode,
   body > .toast,
   body > input { display: none !important; }
 
@@ -995,4 +997,46 @@ button, input, select, textarea { font: inherit; color: inherit; }
   .pl-table thead { display: table-header-group; }
   .pl-tick { width: 20mm; }
   .pl-table td.pl-tick { border-bottom: .15mm solid #8D9C96; }
+}
+
+/* ---------- Sheet layout mode ---------- */
+:root[data-mode="layout"] .topbar,
+:root[data-mode="layout"] .rail,
+:root[data-mode="layout"] .panel,
+:root[data-mode="layout"] .statusbar { display: none !important; }
+
+:root[data-mode="layout"] .stage {
+  position: fixed;
+  inset: 0;
+  z-index: 1;
+}
+:root[data-mode="layout"] .zoomctl { bottom: 176px; }
+:root[data-mode="layout"] .hud { display: none; }
+
+.lo-tip { color: var(--f-dim); }
+
+.fsel {
+  flex: 1;
+  appearance: none;
+  -webkit-appearance: none;
+  background-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 8'%3E%3Cpath d='M1 1.5 6 6.5l5-5' fill='none' stroke='%239EAFA9' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+  background-size: 11px 7px;
+  padding-right: 28px;
+  min-height: 42px;
+  padding: 0 10px;
+  border-radius: 10px;
+  border: 1px solid var(--f-line);
+  background: rgba(255, 255, 255, .07);
+  color: var(--f-ink);
+  font-size: 14px;
+  font-weight: 500;
+  min-width: 0;
+}
+.fsel option { background: #16201D; color: #F2F6F4; }
+
+@media (max-width: 420px) {
+  .lo-tip { display: none; }
+  .fsel { font-size: 13px; min-height: 40px; }
 }

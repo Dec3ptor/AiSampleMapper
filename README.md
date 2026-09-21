@@ -232,10 +232,10 @@ choose is printed on every export so the basis travels with the numbers.
 sample, so they add laboratory samples but not locations. Defaults are one
 duplicate per 20 primary samples, no inter-lab splits, no blanks.
 
-## Printing
+## PDF output
 
-**Export → Print / PDF** lays the plan onto paper. Choose **Save as PDF** as the
-destination in the print dialogue, or send it to a printer.
+**Export → Create PDF** writes a PDF file directly. Nothing goes through the
+print dialogue; you get a `.pdf` to keep, send or print.
 
 | Setting | |
 | --- | --- |
@@ -245,15 +245,35 @@ destination in the print dialogue, or send it to a printer.
 | Sheet index | An overview sheet with the sheets numbered on it, when it splits |
 | Sample schedule | A table of every location with a tick column to sign off in the field |
 
-The readout tells you what you are about to get — *"2 × 3 = 6 sheets at 1:250,
-A3 landscape"* — before you commit any paper to it. Split sheets overlap
-slightly so nothing is lost in a join, and every sheet carries the title block,
-legend, scale bar and north arrow.
+Split sheets overlap by 4% so nothing is lost in a join, and every sheet carries
+the title block, legend, scale bar and north arrow.
 
-It goes through the browser's own print dialogue rather than bundling a PDF
-library: no network needed, and the title block prints as real text at printer
-resolution instead of being flattened into an image. Turn the dialogue's margins
-off — each sheet already carries its own.
+### Positioning the sheets
+
+**Position sheets…** opens the plan full-screen with the sheet grid drawn over
+it. From there:
+
+- **drag a sheet** to slide the whole grid, so a split does not fall through the
+  middle of a stockpile
+- **tap a sheet** to leave it out — a tile with nothing on it is not worth
+  printing
+- change paper, orientation and scale and watch the grid re-flow
+- **Centre grid** puts it back and re-includes everything
+
+The counter reads *"4 of 6 sheets"*, so you know what the PDF will contain
+before you make it.
+
+### How it is written
+
+The PDF is generated in the app, with no library: pages, content streams, JPEG
+image XObjects and the base-14 fonts are enough for a map sheet. That keeps the
+app dependency-free and working with no network, which is the point of the
+offline shell. The map is a JPEG placed untouched, so nothing is lost
+re-compressing it; everything else — the title block, the schedule table — is
+real text in the file, selectable and sharp at any zoom.
+
+**Send to printer instead** is still there if you want paper straight away; it
+uses the browser's print dialogue.
 
 ## Exports
 
@@ -328,7 +348,8 @@ js/store.js                project state, ids, undo, persistence
 js/render.js               canvas drawing, shared by the map and the figure
 js/export.js               CSV, GeoJSON, KML, PNG figure, project file
 js/field.js                on-site mode: GPS, progress, rate, field edits
-js/print.js                paper layout: sheet splitting, title block, schedule
+js/pdf.js                  a small PDF writer: pages, JPEG images, base-14 text
+js/print.js                sheet layout, title block, schedule, the layout mode
 js/app.js                  interaction, panels, wiring
 sw.js                      offline shell, so the site works with no coverage
 manifest.webmanifest       makes it installable to a home screen

@@ -2,7 +2,7 @@
 (function (ASM) {
   'use strict';
 
-  var BUILD = '2026-09-21.6';   // bumped on each deploy; shown under Setup
+  var BUILD = '2026-09-21.8';   // bumped on each deploy; shown under Setup
 
   var store = ASM.store, geo = ASM.geo, geom = ASM.geom, plan = ASM.plan, R = ASM.render;
   var S = store.state;
@@ -73,6 +73,7 @@
       project: S.project, image: S.image, ui: ui
     });
 
+    if (ASM.printer) ASM.printer.drawOverlay(ctx, view);
     if (ASM.field) ASM.field.drawOverlay(ctx, view);
 
     if (S.image) {
@@ -236,7 +237,17 @@
     if (!S.image) return;
     canvas.setPointerCapture(ev.pointerId);
     var p = eventImagePoint(ev);
+    ui.cursor = p;
     var isPan = ev.button === 1 || ev.altKey || ev.shiftKey;
+
+    // Laying out sheets takes over the map: inside the grid a drag slides it,
+    // outside the map pans as usual.
+    if (ASM.printer && ASM.printer.isLayoutOn() && !isPan) {
+      if (ASM.printer.onPointerDown(p)) { ui.drag = { kind: 'layout' }; return; }
+      ui.drag = { kind: 'pan', x: ev.clientX, y: ev.clientY, tx: view.tx, ty: view.ty };
+      canvas.style.cursor = 'grabbing';
+      return;
+    }
 
     if (ui.pending === 'calibrate') {
       ui.draft.push(p);
@@ -353,6 +364,7 @@
     updateStatusCoord(p);
 
     if (ui.drag) {
+      if (ui.drag.kind === 'layout') { ASM.printer.onPointerMove(p); return; }
       if (ui.drag.kind === 'pan') {
         view.tx = ui.drag.tx + (ev.clientX - ui.drag.x);
         view.ty = ui.drag.ty + (ev.clientY - ui.drag.y);
@@ -380,6 +392,7 @@
       var d = ui.drag;
       ui.drag = null;
       canvas.style.cursor = '';
+      if (d.kind === 'layout') { ASM.printer.onPointerUp(ui.cursor); return; }
       if (d.kind === 'sample' && d.moved) {
         d.sample.stockpileId = store.pileAt(d.sample.px, d.sample.py);
         store.recode();
@@ -1277,18 +1290,46 @@
 
   function printOptions() {
     var sc = el.pScale.value;
-    return {
-      paper: el.pPaper.value,
-      orientation: el.pOrient.value,
-      scale: sc === 'fit' ? 'fit' : parseInt(sc, 10),
-      overview: el.pOverview.checked,
-      schedule: el.pSchedule.checked
-    };
+    ASM.printer.setOpt('paper', el.pPaper.value);
+    ASM.printer.setOpt('orientation', el.pOrient.value);
+    ASM.printer.setOpt('scale', sc === 'fit' ? 'fit' : parseInt(sc, 10));
+    ASM.printer.setOpt('overview', el.pOverview.checked);
+    ASM.printer.setOpt('schedule', el.pSchedule.checked);
+    return ASM.printer.opts();
+  }
+
+  /** Mirror the stored options back into the Export pane controls. */
+  function syncPrintPane() {
+    var o = ASM.printer.opts();
+    if (document.activeElement !== el.pPaper) el.pPaper.value = o.paper;
+    if (document.activeElement !== el.pOrient) el.pOrient.value = o.orientation;
+    if (document.activeElement !== el.pScale) el.pScale.value = String(o.scale);
+    el.pOverview.checked = !!o.overview;
+    el.pSchedule.checked = !!o.schedule;
+    renderPrintReadout();
+  }
+
+  function makePdfNow() {
+    if (!S.image) { toast('Load an aerial image first.', true); return; }
+    toast('Building the PDF…');
+    ASM.printer.makePDF(printOptions()).then(function (res) {
+      var name = ASM.exporter.slug(S.project.name) + '-plan.pdf';
+      return ASM.exporter.saveFile(name, res.blob, 'application/pdf').then(function (r) {
+        toast(r.ok
+          ? res.sheets + ' sheet' + (res.sheets === 1 ? '' : 's') + ' saved as ' + (r.name || name) + '.'
+          : (r.message || 'Not saved.'), !r.ok);
+      });
+    }).catch(function (e) {
+      toast(e && e.message === 'every sheet is skipped'
+        ? 'Every sheet is left out — tap one to put it back.'
+        : 'Could not build the PDF.', true);
+    });
   }
 
   function renderPrintReadout() {
     if (!el.pReadout || !ASM.printer) return;
     var g = S.project.georef;
+    if (ASM.printer.isLayoutOn()) ASM.printer.syncLayoutBar();
     if (!geo.hasScale(g)) {
       el.pReadout.innerHTML = '<b>Fitted to one sheet.</b> Set the image scale to print at a stated ratio.';
       return;
@@ -1304,7 +1345,7 @@
   }
 
   function renderExportHints() {
-    renderPrintReadout();
+    syncPrintPane();
     var g = S.project.georef;
     el.gisHint.textContent = geo.isAbsolute(g)
       ? 'Coordinates are projected from ' + g.crs + ' to WGS84 longitude/latitude, which is what GeoJSON and KML require.'
@@ -1680,6 +1721,28 @@
     ['pPaper', 'pOrient', 'pScale', 'pOverview', 'pSchedule'].forEach(function (id) {
       el[id].addEventListener('change', renderPrintReadout);
     });
+    $('btnPdf').addEventListener('click', makePdfNow);
+    $('btnLayout').addEventListener('click', function () {
+      if (!S.image) { toast('Load an aerial image first.', true); return; }
+      ASM.printer.openLayout();
+    });
+    $('loExit').addEventListener('click', function () {
+      ASM.printer.closeLayout();
+      renderPrintReadout();
+    });
+    $('loCentre').addEventListener('click', function () { ASM.printer.centreGrid(); });
+    $('loPdf').addEventListener('click', makePdfNow);
+    [['loPaper', 'paper'], ['loOrient', 'orientation'], ['loScale', 'scale']].forEach(function (pair) {
+      $(pair[0]).addEventListener('change', function () {
+        var v = $(pair[0]).value;
+        ASM.printer.setOpt(pair[1], pair[1] === 'scale' && v !== 'fit' ? parseInt(v, 10) : v);
+        ASM.printer.syncLayoutBar();
+        syncPrintPane();
+        store.saveLocal();
+        requestDraw();
+      });
+    });
+
     $('btnPrint').addEventListener('click', function () {
       if (!S.image) { toast('Load an aerial image first.', true); return; }
       toast('Laying out the sheets…');

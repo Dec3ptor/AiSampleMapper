@@ -374,9 +374,14 @@
             <label class="check"><input type="checkbox" id="pOverview" checked><span>Sheet index when it splits</span></label>
             <label class="check"><input type="checkbox" id="pSchedule" checked><span>Sample schedule table</span></label>
             <div class="preview" id="pReadout"></div>
-            <button class="btn btn-block btn-primary" id="btnPrint" type="button">Print / Save as PDF</button>
-            <p class="hint">Pick <em>Save as PDF</em> as the destination in the print dialogue. Set the same
-              paper size and orientation there, and turn margins off — each sheet already carries its own.</p>
+            <div class="btn-row">
+              <button class="btn btn-block btn-primary" id="btnPdf" type="button">Create PDF</button>
+              <button class="btn btn-block" id="btnLayout" type="button">Position sheets…</button>
+            </div>
+            <button class="btn btn-block btn-sm" id="btnPrint" type="button">Send to printer instead</button>
+            <p class="hint"><strong>Create PDF</strong> writes the file straight out — nothing goes through the
+              print dialogue. <strong>Position sheets</strong> opens the plan with the sheet grid on it so you can
+              slide the split off a stockpile and drop sheets you do not need.</p>
           </div>
 
           <div class="group">
@@ -396,8 +401,40 @@
     </aside>
   </div>
 
+  <!-- ============ SHEET LAYOUT MODE ============ -->
+  <div class="fieldmode layoutui" id="layoutUI" hidden>
+    <header class="field-top">
+      <button class="fbtn fbtn-exit" id="loExit" type="button">Done</button>
+      <div class="fprog">
+        <div class="fprog-row">
+          <b id="loSheets">—</b>
+          <span id="loScaleText">—</span>
+          <span class="lo-tip">Drag a sheet to shift the split · tap one to leave it out</span>
+        </div>
+      </div>
+    </header>
+
+    <div class="field-foot">
+      <div class="field-bar field-bar-sec">
+        <select class="fsel" id="loPaper" aria-label="Paper size">
+          <option value="a4">A4</option><option value="a3">A3</option></select>
+        <select class="fsel" id="loOrient" aria-label="Orientation">
+          <option value="auto">Auto</option><option value="landscape">Landscape</option>
+          <option value="portrait">Portrait</option></select>
+        <select class="fsel" id="loScale" aria-label="Scale">
+          <option value="fit">Fit one sheet</option>
+          <option value="1000">1:1000</option><option value="500">1:500</option>
+          <option value="250">1:250</option><option value="100">1:100</option></select>
+      </div>
+      <div class="field-bar">
+        <button class="fbtn fbtn-ghost" id="loCentre" type="button">Centre grid</button>
+        <button class="fbtn fbtn-done" id="loPdf" type="button">Create PDF</button>
+      </div>
+    </div>
+  </div>
+
   <!-- ============ FIELD MODE ============ -->
-  <div class="field" id="fieldUI" hidden>
+  <div class="fieldmode" id="fieldUI" hidden>
     <header class="field-top">
       <button class="fbtn fbtn-exit" id="fieldExit" type="button">Exit</button>
       <div class="fprog">
@@ -468,5 +505,6 @@
 <script src="js/render.js"></script>
 <script src="js/export.js"></script>
 <script src="js/field.js"></script>
+<script src="js/pdf.js"></script>
 <script src="js/print.js"></script>
 <script src="js/app.js"></script>

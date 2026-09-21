@@ -8,7 +8,7 @@
  * everything under a fixed cache name, which served stale JavaScript after
  * every deploy and never purged it.
  */
-var CACHE = 'asm-shell-v3';
+var CACHE = 'asm-shell-v4';
 var SHELL = [
   './',
   'index.html',
@@ -20,6 +20,7 @@ var SHELL = [
   'js/render.js',
   'js/export.js',
   'js/field.js',
+  'js/pdf.js',
   'js/print.js',
   'js/app.js',
   'sample/site-aerial.jpg',
