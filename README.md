@@ -96,7 +96,9 @@ is set above, which is usually what you want after adding or deleting a few.
 
 **Sample locations** work the same way, either numbered across the whole site
 (`SP01`, `SP02`) or within each pile (`WR01-01`, `WR01-02`), which is the more
-useful form once a pile has its own name. Sample IDs re-flow whenever the plan
+useful form once a pile has its own name. Site-wide numbering is one run across
+the whole job: whether a sample happens to sit inside a stockpile outline makes
+no difference to its number. Sample IDs re-flow whenever the plan
 changes, so the numbering order matters most here.
 
 **A composite takes one number**, like any other sample, so the singles after it

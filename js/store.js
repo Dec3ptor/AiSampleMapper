@@ -333,27 +333,42 @@
    * it every time a duplicate was added. */
   function recode() {
     var p = state.project, st = p.settings;
-    var order = p.stockpiles.map(function (s) { return s.id; });
-    order.push(null);
+    var primaries = p.samples.filter(function (s) { return !isQA(s); });
     var siteN = 0;
 
-    order.forEach(function (pid) {
-      var inPile = sortForNaming(
-        p.samples.filter(function (s) { return s.stockpileId === pid && !isQA(s); }),
-        function (s) { return [s.px, s.py]; }
-      );
-      var pileN = 0;
-      inPile.forEach(function (s) {
-        if (s.codeLocked && s.code) return;
-        if (st.idScope === 'pile' && pid) {
-          pileN += 1;
-          s.code = ((pileById(pid) || {}).name || st.idPrefix) + '-' + String(pileN).padStart(st.pad, '0');
-        } else {
+    if (st.idScope === 'pile') {
+      // Each stockpile carries its own run, so grouping is the point here.
+      var order = p.stockpiles.map(function (x) { return x.id; });
+      order.push(null);
+      order.forEach(function (pid) {
+        var inPile = sortForNaming(
+          primaries.filter(function (s) { return s.stockpileId === pid; }),
+          function (s) { return [s.px, s.py]; }
+        );
+        var pileN = 0;
+        inPile.forEach(function (s) {
+          if (s.codeLocked && s.code) return;
+          if (pid) {
+            pileN += 1;
+            s.code = ((pileById(pid) || {}).name || st.idPrefix) + '-' + String(pileN).padStart(st.pad, '0');
+          } else {
+            siteN += 1;
+            s.code = st.idPrefix + String(siteN).padStart(st.pad, '0');
+          }
+        });
+      });
+    } else {
+      // One run across the whole job. Which stockpile a sample happens to sit
+      // in must not affect its number: grouping by pile here put a sample that
+      // landed inside one at the front of the sequence and shifted every other
+      // id along by one.
+      sortForNaming(primaries, function (s) { return [s.px, s.py]; })
+        .forEach(function (s) {
+          if (s.codeLocked && s.code) return;
           siteN += 1;
           s.code = st.idPrefix + String(siteN).padStart(st.pad, '0');
-        }
-      });
-    });
+        });
+    }
 
     var used = {};
     sortForNaming(p.samples.filter(isQA), function (s) { return [s.px, s.py]; })
