@@ -1129,7 +1129,9 @@
       store.checkpoint();
       // A field duplicate is co-located: offset only enough to stay clickable.
       var off = 6 / Math.max(view.scale, 0.5);
-      var d = store.addSample(s.px + off, s.py + off, { stockpileId: s.stockpileId, type: 'duplicate' });
+      var d = store.addSample(s.px + off, s.py + off, {
+        stockpileId: s.stockpileId, type: 'duplicate', duplicateOf: s.id
+      });
       d.depthFrom = s.depthFrom; d.depthTo = s.depthTo; d.matrix = s.matrix;
       d.notes = 'Field duplicate of ' + s.code;
       store.recode();

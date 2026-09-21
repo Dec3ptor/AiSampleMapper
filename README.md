@@ -99,6 +99,17 @@ is set above, which is usually what you want after adding or deleting a few.
 useful form once a pile has its own name. Sample IDs re-flow whenever the plan
 changes, so the numbering order matters most here.
 
+**A composite takes one number**, like any other sample, so the singles after it
+carry straight on — `SP01`, `SP02` (composite ×5), `SP03`, `SP04` (composite ×3),
+`SP05`. One ID per laboratory sample, whatever it was built from.
+
+**QA samples take no number of their own.** A field duplicate is a second jar
+from the same spot rather than another location, so it takes the ID of the
+sample it checks with a suffix: `SP03D`, and a second one `SP03D2`; an inter-lab
+split is `SP05S`. Nothing after it shifts — numbering one would renumber the rest
+of the job every time you added a duplicate. If its primary is later deleted the
+orphan falls back to a number of its own so it still has a unique ID.
+
 Anything you type yourself is pinned: renumbering leaves it alone, reports how
 many it kept, and routes around its number so two features can never share a
 name. A pinned sample ID shows a dot in the list, and the sample editor offers to

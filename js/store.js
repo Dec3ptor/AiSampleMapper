@@ -248,6 +248,9 @@
       // Where each increment of a composite is taken. One sample, one id,
       // many locations. Empty for a single-point sample.
       incPts: opts.incPts ? opts.incPts.slice() : [],
+      // For a QA sample, the primary it checks. Its id is derived from that
+      // one rather than taking a number out of the primary sequence.
+      duplicateOf: opts.duplicateOf || null,
       depthFrom: p.settings.defaultDepthFrom,
       depthTo: p.settings.defaultDepthTo,
       matrix: 'Soil',
@@ -318,7 +321,16 @@
     return null;
   }
 
-  /** Regenerate sample codes in map order. Manually edited codes are kept. */
+  function isQA(s) { return s.type === 'duplicate' || s.type === 'split'; }
+
+  /** Regenerate sample codes in map order. Manually edited codes are kept.
+   *
+   * Primaries carry the numbering: a composite is one sample and takes exactly
+   * one number, so the singles after it carry straight on. QA samples are not
+   * separate locations at all -- a field duplicate is a second jar from the
+   * same spot -- so they take the id of the sample they check with a suffix,
+   * never a number of their own. Numbering one would shift every sample after
+   * it every time a duplicate was added. */
   function recode() {
     var p = state.project, st = p.settings;
     var order = p.stockpiles.map(function (s) { return s.id; });
@@ -327,25 +339,40 @@
 
     order.forEach(function (pid) {
       var inPile = sortForNaming(
-        p.samples.filter(function (s) { return s.stockpileId === pid; }),
+        p.samples.filter(function (s) { return s.stockpileId === pid && !isQA(s); }),
         function (s) { return [s.px, s.py]; }
       );
       var pileN = 0;
       inPile.forEach(function (s) {
         if (s.codeLocked && s.code) return;
-        var num, prefix;
         if (st.idScope === 'pile' && pid) {
-          pileN += 1; num = pileN;
-          prefix = (pileById(pid) || {}).name || st.idPrefix;
-          s.code = prefix + '-' + String(num).padStart(st.pad, '0');
+          pileN += 1;
+          s.code = ((pileById(pid) || {}).name || st.idPrefix) + '-' + String(pileN).padStart(st.pad, '0');
         } else {
-          siteN += 1; num = siteN;
-          s.code = st.idPrefix + String(num).padStart(st.pad, '0');
+          siteN += 1;
+          s.code = st.idPrefix + String(siteN).padStart(st.pad, '0');
         }
-        if (s.type === 'duplicate') s.code += 'D';
-        else if (s.type === 'split') s.code += 'S';
       });
     });
+
+    var used = {};
+    sortForNaming(p.samples.filter(isQA), function (s) { return [s.px, s.py]; })
+      .forEach(function (s) {
+        if (s.codeLocked && s.code) return;
+        var parent = s.duplicateOf ? sampleById(s.duplicateOf) : null;
+        var suffix = s.type === 'duplicate' ? 'D' : 'S';
+        if (parent && parent.code) {
+          var base = parent.code + suffix;
+          used[base] = (used[base] || 0) + 1;
+          // A second duplicate of the same primary becomes SP03D2.
+          s.code = base + (used[base] > 1 ? used[base] : '');
+        } else {
+          // Orphaned, usually because its primary was deleted. Give it a
+          // number of its own so it still has a unique, obvious id.
+          siteN += 1;
+          s.code = st.idPrefix + String(siteN).padStart(st.pad, '0') + suffix;
+        }
+      });
   }
 
   /** Whole-job totals for the summary panel and exports. */
@@ -466,10 +493,36 @@
     out.seq = Object.assign({ pile: 0, sample: 0 }, obj.seq || {});
     out.stockpiles = (obj.stockpiles || []).filter(function (s) { return s && s.polygon && s.polygon.length > 2; });
     out.samples = (obj.samples || []).filter(function (s) { return s && isFinite(s.px) && isFinite(s.py); });
+    var pileIds = {};
+    out.stockpiles.forEach(function (pile) { pileIds[pile.id] = true; });
+
     out.samples.forEach(function (s) {
       s.incPts = Array.isArray(s.incPts)
         ? s.incPts.filter(function (pt) { return pt && isFinite(pt[0]) && isFinite(pt[1]); })
         : [];
+      if (s.duplicateOf === undefined) s.duplicateOf = null;
+      // Numbering groups samples by stockpile id and compares against null for
+      // off-pile. An undefined or dangling id would match no group at all and
+      // the sample would silently never be numbered.
+      if (s.stockpileId === undefined || (s.stockpileId && !pileIds[s.stockpileId])) {
+        s.stockpileId = null;
+      }
+      if (typeof s.status !== 'string') s.status = 'planned';
+    });
+    // Projects saved before QA samples were linked to their primary: a
+    // duplicate sits all but on top of the sample it checks, so the nearest
+    // primary is the one it came from.
+    var byId = {};
+    out.samples.forEach(function (s) { byId[s.id] = s; });
+    out.samples.forEach(function (s) {
+      if (!isQA(s) || (s.duplicateOf && byId[s.duplicateOf])) return;
+      var best = null, bestD = Infinity;
+      out.samples.forEach(function (o) {
+        if (o === s || isQA(o)) return;
+        var d = Math.hypot(o.px - s.px, o.py - s.py);
+        if (d < bestD) { bestD = d; best = o; }
+      });
+      s.duplicateOf = best ? best.id : null;
     });
     // Rebuild counters so new items never collide with loaded ids.
     out.seq.pile = Math.max(out.seq.pile, out.stockpiles.length);
@@ -546,6 +599,7 @@
     syncComposite: syncComposite, addIncrement: addIncrement, removeIncrement: removeIncrement,
     moveSample: moveSample,
     recode: recode, totals: totals, progress: progress, markCollected: markCollected,
+    isQA: isQA,
     saveLocal: saveLocal, loadLocal: loadLocal, clearLocal: clearLocal,
     saveImageBlob: saveImageBlob, loadImageBlob: loadImageBlob, clearImageBlob: clearImageBlob,
     todayISO: todayISO
