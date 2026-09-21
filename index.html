@@ -1,0 +1,355 @@
+<!doctype html>
+<html lang="en-NZ">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Stockpile Sample Mapper</title>
+<meta name="description" content="Plan, count and export contaminated-land stockpile sampling locations on an aerial photo.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Barlow:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="css/app.css">
+</head>
+<body>
+<div class="app">
+
+  <header class="topbar">
+    <div class="brand">
+      <svg class="brand-mark" viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M3 18.5 8.2 7.5 12 15l2.6-4.5L21 18.5Z" fill="currentColor" opacity=".35"/>
+        <path d="M3 18.5 8.2 7.5 12 15l2.6-4.5L21 18.5Z" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/>
+        <circle cx="8.2" cy="13.4" r="1.7" fill="var(--accent)"/>
+        <circle cx="15.4" cy="14.6" r="1.7" fill="var(--accent)"/>
+      </svg>
+      <span class="brand-text">
+        <span class="brand-name">Stockpile Sample Mapper</span>
+        <span class="brand-sub">Contaminated land sampling plan</span>
+      </span>
+    </div>
+
+    <div class="topbar-actions">
+      <button class="chip chip-scale" id="scaleChip" type="button" title="Image scale — click to set">
+        <span class="chip-dot"></span><span id="scaleChipText">No scale set</span>
+      </button>
+      <button class="btn" id="btnImage" type="button">Aerial image</button>
+      <button class="btn" id="btnOpen" type="button">Open</button>
+      <button class="btn btn-primary" id="btnSave" type="button">Save project</button>
+      <button class="btn btn-icon" id="btnTheme" type="button" title="Switch light / dark" aria-label="Switch light or dark theme">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a9 9 0 1 0 9 9 7 7 0 0 1-9-9Z" fill="currentColor"/></svg>
+      </button>
+    </div>
+  </header>
+
+  <div class="body">
+
+    <nav class="rail" aria-label="Map tools">
+      <button class="tool is-active" data-tool="select" type="button" title="Select and pan (V)">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m5 3 14 8-6 1.6L10 19Z" fill="currentColor"/></svg>
+        <span>Select</span>
+      </button>
+      <button class="tool" data-tool="pile" type="button" title="Draw stockpile outline (P)">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 18h16L14 7l-3 5-2-2Z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>
+        <span>Stockpile</span>
+      </button>
+      <button class="tool" data-tool="sample" type="button" title="Place sample location (S)">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="5.2" fill="none" stroke="currentColor" stroke-width="2.4"/><circle cx="12" cy="12" r="1.4" fill="currentColor"/></svg>
+        <span>Sample</span>
+      </button>
+      <button class="tool" data-tool="measure" type="button" title="Measure distance or area (M)">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 14 14 3l7 7L10 21Z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/><path d="M7 10l2 2M10 7l2 2M13 12l2 2" stroke="currentColor" stroke-width="1.5"/></svg>
+        <span>Measure</span>
+      </button>
+      <button class="tool" data-tool="erase" type="button" title="Delete by clicking (X)">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 7h14M9 7V5h6v2M7 7l1 13h8l1-13" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>
+        <span>Erase</span>
+      </button>
+
+      <div class="rail-gap"></div>
+
+      <button class="tool tool-sm" id="btnUndo" type="button" title="Undo (Ctrl+Z)">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 7 4 12l5 5M4 12h9a6 6 0 0 1 0 12h-1" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        <span>Undo</span>
+      </button>
+      <button class="tool tool-sm" id="btnRedo" type="button" title="Redo (Ctrl+Shift+Z)">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m15 7 5 5-5 5M20 12h-9a6 6 0 0 0 0 12h1" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        <span>Redo</span>
+      </button>
+      <button class="tool tool-sm" id="btnFit" type="button" title="Zoom to fit (F)">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+        <span>Fit</span>
+      </button>
+    </nav>
+
+    <main class="stage" id="stage">
+      <canvas id="map"></canvas>
+
+      <div class="dropzone" id="dropzone" hidden>
+        <div class="dropzone-card">
+          <strong>Drop the aerial image</strong>
+          <span>JPG, PNG or WebP — with its world file if you have one</span>
+        </div>
+      </div>
+
+      <div class="hud hud-tl" id="hudTool" hidden></div>
+
+      <div class="zoomctl">
+        <button class="zbtn" id="btnZoomIn" type="button" aria-label="Zoom in">+</button>
+        <button class="zbtn" id="btnZoomOut" type="button" aria-label="Zoom out">−</button>
+      </div>
+    </main>
+
+    <aside class="panel" id="panel">
+      <button class="panel-handle" id="panelHandle" type="button" aria-label="Expand or collapse the panel"></button>
+
+      <div class="tabs" role="tablist">
+        <button class="tab is-active" data-tab="setup" role="tab" type="button">Setup</button>
+        <button class="tab" data-tab="piles" role="tab" type="button">Piles</button>
+        <button class="tab" data-tab="samples" role="tab" type="button">Samples</button>
+        <button class="tab" data-tab="plan" role="tab" type="button">Plan</button>
+        <button class="tab" data-tab="export" role="tab" type="button">Export</button>
+      </div>
+
+      <div class="panes">
+
+        <!-- ============ SETUP ============ -->
+        <section class="pane is-active" data-pane="setup">
+          <div class="group">
+            <h3 class="group-title">Job details</h3>
+            <label class="field"><span>Plan name</span><input id="fName" type="text" placeholder="Stockpile validation sampling"></label>
+            <div class="field-row">
+              <label class="field"><span>Client</span><input id="fClient" type="text" placeholder="Client name"></label>
+              <label class="field"><span>Job ref</span><input id="fJobRef" type="text" placeholder="J12345"></label>
+            </div>
+            <div class="field-row">
+              <label class="field"><span>Prepared by</span><input id="fBy" type="text" placeholder="Initials"></label>
+              <label class="field"><span>Planned date</span><input id="fDate" type="date"></label>
+            </div>
+          </div>
+
+          <div class="group">
+            <h3 class="group-title">Aerial image</h3>
+            <div class="imgstat" id="imgStat">No image loaded</div>
+            <div class="btn-row">
+              <button class="btn btn-block" id="btnImage2" type="button">Load image…</button>
+              <button class="btn btn-block" id="btnSample" type="button">Example site</button>
+            </div>
+            <p class="hint">Everything stays in this browser. The image is never uploaded.</p>
+          </div>
+
+          <div class="group">
+            <h3 class="group-title">Scale &amp; georeference</h3>
+            <p class="hint hint-lead">Measurements and coordinates depend on this. Set it before you draw.</p>
+
+            <label class="field"><span>Metres per pixel (GSD)</span>
+              <input id="fMppx" type="number" step="0.0001" min="0.0001" placeholder="0.1000">
+            </label>
+            <div class="btn-row">
+              <button class="btn btn-sm" id="btnGsd10" type="button">0.10 m — BOPRC 2026</button>
+              <button class="btn btn-sm" id="btnCalibrate" type="button">Measure a known length…</button>
+            </div>
+
+            <div class="divider"></div>
+
+            <div class="field-row">
+              <label class="field"><span>Easting (mE)</span><input id="fAnchorE" type="number" step="0.01" placeholder="1942474.10"></label>
+              <label class="field"><span>Northing (mN)</span><input id="fAnchorN" type="number" step="0.01" placeholder="5787002.72"></label>
+            </div>
+            <button class="btn btn-block" id="btnAnchor" type="button">Pin these NZTM coordinates to a pixel…</button>
+            <p class="hint">Read the coordinates of a recognisable feature off your GIS, then click that
+              feature on the photo. Assumes the image is north-up.</p>
+
+            <div class="divider"></div>
+
+            <button class="btn btn-block" id="btnWorld" type="button">Load world file (.jgw / .pgw / .tfw)…</button>
+            <p class="hint">Exact georeferencing, including rotation. Must match this image at its
+              original pixel size — a resized crop will not line up.</p>
+
+            <div class="georef-state" id="georefState"></div>
+          </div>
+        </section>
+
+        <!-- ============ PILES ============ -->
+        <section class="pane" data-pane="piles">
+          <div class="group">
+            <div class="group-head">
+              <h3 class="group-title">Stockpiles <span class="count-badge" id="countPiles">0</span></h3>
+              <button class="btn btn-sm" id="btnAddPile" type="button">Draw new</button>
+            </div>
+            <div class="list" id="pileList"></div>
+          </div>
+          <div class="group" id="pileEditor" hidden></div>
+        </section>
+
+        <!-- ============ SAMPLES ============ -->
+        <section class="pane" data-pane="samples">
+          <div class="group">
+            <div class="group-head">
+              <h3 class="group-title">Sample locations <span class="count-badge" id="countSamples">0</span></h3>
+              <button class="btn btn-sm" id="btnRecode" type="button" title="Renumber every location in map order">Renumber</button>
+            </div>
+            <div class="seg" id="sampleFilter" role="group" aria-label="Filter samples">
+              <button class="seg-btn is-active" data-filter="all" type="button">All</button>
+              <button class="seg-btn" data-filter="planned" type="button">Planned</button>
+              <button class="seg-btn" data-filter="collected" type="button">Collected</button>
+              <button class="seg-btn" data-filter="qa" type="button">QA</button>
+            </div>
+            <div class="list list-tall" id="sampleList"></div>
+          </div>
+          <div class="group" id="sampleEditor" hidden></div>
+        </section>
+
+        <!-- ============ PLAN ============ -->
+        <section class="pane" data-pane="plan">
+          <div class="group">
+            <h3 class="group-title">Sampling density</h3>
+            <p class="hint hint-lead">Set this from the waste acceptance criteria or guidance that governs
+              the job. The rule you choose is printed on every export.</p>
+            <div class="seg seg-wide" id="ruleMode" role="group" aria-label="Density rule">
+              <button class="seg-btn is-active" data-mode="rate" type="button">Per volume</button>
+              <button class="seg-btn" data-mode="banded" type="button">Banded</button>
+              <button class="seg-btn" data-mode="fixed" type="button">Fixed</button>
+            </div>
+
+            <div id="ruleRate" class="rule-body">
+              <div class="field-row">
+                <label class="field"><span>1 location per</span>
+                  <span class="input-suffix"><input id="fPerCubic" type="number" min="1" step="1"><i>m³</i></span></label>
+                <label class="field"><span>Minimum per pile</span><input id="fMinPer" type="number" min="1" step="1"></label>
+              </div>
+              <div class="btn-row">
+                <button class="btn btn-sm" data-preset="100" type="button">1 / 100 m³</button>
+                <button class="btn btn-sm" data-preset="250" type="button">1 / 250 m³</button>
+                <button class="btn btn-sm" data-preset="500" type="button">1 / 500 m³</button>
+              </div>
+            </div>
+
+            <div id="ruleBanded" class="rule-body" hidden>
+              <table class="bands"><thead><tr><th>Volume up to</th><th>Locations</th><th></th></tr></thead>
+                <tbody id="bandRows"></tbody></table>
+              <div class="btn-row">
+                <button class="btn btn-sm" id="btnAddBand" type="button">Add band</button>
+              </div>
+              <label class="field"><span>Above the last band, add 1 location per</span>
+                <span class="input-suffix"><input id="fPerExtra" type="number" min="1" step="1"><i>m³</i></span></label>
+            </div>
+
+            <div id="ruleFixed" class="rule-body" hidden>
+              <label class="field"><span>Locations per stockpile</span><input id="fFixed" type="number" min="1" step="1"></label>
+            </div>
+
+            <div class="rule-readout" id="ruleReadout"></div>
+          </div>
+
+          <div class="group">
+            <h3 class="group-title">QA/QC</h3>
+            <div class="field-row">
+              <label class="field"><span>Field duplicate every</span><input id="fDupEvery" type="number" min="0" step="1"></label>
+              <label class="field"><span>Inter-lab split every</span><input id="fSplitEvery" type="number" min="0" step="1"></label>
+            </div>
+            <label class="field"><span>Field blanks</span><input id="fBlanks" type="number" min="0" step="1"></label>
+            <p class="hint">Duplicates are co-located with a primary sample, so they add laboratory
+              samples but not locations. 0 turns a requirement off.</p>
+          </div>
+
+          <div class="group">
+            <h3 class="group-title">Location IDs</h3>
+            <div class="field-row">
+              <label class="field"><span>Prefix</span><input id="fPrefix" type="text" maxlength="8"></label>
+              <label class="field"><span>Digits</span><input id="fPad" type="number" min="1" max="4" step="1"></label>
+            </div>
+            <div class="seg seg-wide" id="idScope" role="group" aria-label="Numbering">
+              <button class="seg-btn is-active" data-scope="site" type="button">Across the site</button>
+              <button class="seg-btn" data-scope="pile" type="button">Within each pile</button>
+            </div>
+          </div>
+
+          <div class="group">
+            <h3 class="group-title">Plan summary</h3>
+            <div class="summary" id="summary"></div>
+            <div class="shortfall" id="shortfall"></div>
+          </div>
+        </section>
+
+        <!-- ============ EXPORT ============ -->
+        <section class="pane" data-pane="export">
+          <div class="group">
+            <h3 class="group-title">Field &amp; laboratory</h3>
+            <div class="export-row">
+              <div><strong>Sample schedule</strong><span>One row per location, with coordinates</span></div>
+              <div class="btn-row"><button class="btn btn-sm" data-export="samples-csv" type="button">CSV</button>
+                <button class="btn btn-sm btn-ghost" data-copy="samples-csv" type="button">Copy</button></div>
+            </div>
+            <div class="export-row">
+              <div><strong>Stockpile register</strong><span>Volumes, required counts, shortfalls</span></div>
+              <div class="btn-row"><button class="btn btn-sm" data-export="piles-csv" type="button">CSV</button>
+                <button class="btn btn-sm btn-ghost" data-copy="piles-csv" type="button">Copy</button></div>
+            </div>
+          </div>
+
+          <div class="group">
+            <h3 class="group-title">GIS &amp; navigation</h3>
+            <div class="export-row">
+              <div><strong>GeoJSON</strong><span>Points and outlines for QGIS or ArcGIS</span></div>
+              <div class="btn-row"><button class="btn btn-sm" data-export="geojson" type="button">Save</button>
+                <button class="btn btn-sm btn-ghost" data-copy="geojson" type="button">Copy</button></div>
+            </div>
+            <div class="export-row">
+              <div><strong>KML</strong><span>Waypoints for a handheld GPS or Google Earth</span></div>
+              <div class="btn-row"><button class="btn btn-sm" data-export="kml" type="button">Save</button>
+                <button class="btn btn-sm btn-ghost" data-copy="kml" type="button">Copy</button></div>
+            </div>
+            <p class="hint" id="gisHint"></p>
+          </div>
+
+          <div class="group">
+            <h3 class="group-title">Report figure</h3>
+            <label class="field"><span>Width</span>
+              <select id="fFigW">
+                <option value="1600">1600 px — screen</option>
+                <option value="2400" selected>2400 px — A4 at 300 dpi</option>
+                <option value="3600">3600 px — A3 at 300 dpi</option>
+              </select></label>
+            <button class="btn btn-block btn-primary" data-export="figure" type="button">Save annotated figure (PNG)</button>
+            <p class="hint">Drawn with a title block, legend, scale bar and north arrow, ready for an appendix.</p>
+          </div>
+
+          <div class="group">
+            <h3 class="group-title">Project file</h3>
+            <div class="btn-row">
+              <button class="btn btn-block" data-export="project" type="button">Save .json</button>
+              <button class="btn btn-block" id="btnOpen2" type="button">Open .json</button>
+            </div>
+            <p class="hint">Holds the whole plan. The aerial image is kept separately in this browser —
+              reload it if you open the project elsewhere.</p>
+            <div class="divider"></div>
+            <button class="btn btn-block btn-danger" id="btnReset" type="button">Start a new plan</button>
+          </div>
+        </section>
+
+      </div>
+    </aside>
+  </div>
+
+  <footer class="statusbar">
+    <span class="st st-coord" id="stCoord">—</span>
+    <span class="st" id="stZoom">—</span>
+    <span class="st st-grow" id="stHint">Load an aerial image to begin</span>
+    <span class="st st-tally" id="stTally">—</span>
+  </footer>
+</div>
+
+<div class="toast" id="toast" hidden></div>
+
+<input type="file" id="fileImage" accept="image/*" hidden>
+<input type="file" id="fileProject" accept=".json,application/json" hidden>
+<input type="file" id="fileWorld" accept=".jgw,.pgw,.tfw,.wld,.txt" hidden>
+
+<script src="js/geo.js"></script>
+<script src="js/geometry.js"></script>
+<script src="js/plan.js"></script>
+<script src="js/store.js"></script>
+<script src="js/render.js"></script>
+<script src="js/export.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>
