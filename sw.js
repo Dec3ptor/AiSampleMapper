@@ -1,11 +1,14 @@
-/* sw.js — keeps the app usable with no coverage.
+/* sw.js — keeps the app usable with no coverage, without pinning it to an
+ * old build.
  *
- * A stockpile site is exactly where the signal is not. The shell is cached on
- * install and served cache-first, with a background refresh so a later visit
- * picks up a new deploy. Only same-origin GETs are touched: the Google Fonts
- * stylesheet is cross-origin and simply falls back to the local stack offline.
+ * Code and markup are fetched network-first: online you always run the current
+ * deploy, and the cache is only reached for when there is no signal. Photos and
+ * icons are cache-first, because they do not change and they are the expensive
+ * ones to refetch. An earlier version of this file was cache-first for
+ * everything under a fixed cache name, which served stale JavaScript after
+ * every deploy and never purged it.
  */
-var CACHE = 'asm-shell-v1';
+var CACHE = 'asm-shell-v2';
 var SHELL = [
   './',
   'index.html',
@@ -22,6 +25,8 @@ var SHELL = [
   'manifest.webmanifest',
   'icon.svg'
 ];
+
+var MEDIA = /\.(?:jpe?g|png|webp|gif|svg|ttf|woff2?)$/i;
 
 self.addEventListener('install', function (e) {
   e.waitUntil(
@@ -42,21 +47,40 @@ self.addEventListener('activate', function (e) {
   );
 });
 
+function store(req, res) {
+  if (res && res.ok) {
+    var copy = res.clone();
+    caches.open(CACHE).then(function (c) { c.put(req, copy); });
+  }
+  return res;
+}
+
 self.addEventListener('fetch', function (e) {
   var req = e.request;
   if (req.method !== 'GET') return;
-  if (new URL(req.url).origin !== self.location.origin) return;
 
+  var url;
+  try { url = new URL(req.url); } catch (err) { return; }
+  if (url.origin !== self.location.origin) return;
+
+  if (MEDIA.test(url.pathname)) {
+    e.respondWith(
+      caches.match(req).then(function (hit) {
+        return hit || fetch(req).then(function (res) { return store(req, res); });
+      })
+    );
+    return;
+  }
+
+  // Everything else is code or markup: the network wins whenever it answers.
   e.respondWith(
-    caches.match(req).then(function (hit) {
-      var live = fetch(req).then(function (res) {
-        if (res && res.ok) {
-          var copy = res.clone();
-          caches.open(CACHE).then(function (c) { c.put(req, copy); });
-        }
-        return res;
-      }).catch(function () { return hit; });
-      return hit || live;
-    })
+    fetch(req)
+      .then(function (res) { return store(req, res); })
+      .catch(function () {
+        return caches.match(req).then(function (hit) {
+          if (hit) return hit;
+          return req.mode === 'navigate' ? caches.match('index.html') : Promise.reject(new Error('offline'));
+        });
+      })
   );
 });

@@ -2,6 +2,8 @@
 (function (ASM) {
   'use strict';
 
+  var BUILD = '2026-09-21.5';   // bumped on each deploy; shown under Setup
+
   var store = ASM.store, geo = ASM.geo, geom = ASM.geom, plan = ASM.plan, R = ASM.render;
   var S = store.state;
 
@@ -647,6 +649,8 @@
     document.querySelectorAll('#interpMode .seg-btn').forEach(function (b) {
       b.classList.toggle('is-active', b.dataset.interp === (p.settings.interpolation || 'crisp'));
     });
+
+    if (el.buildStamp) el.buildStamp.textContent = 'Build ' + BUILD;
 
     el.scaleChip.classList.toggle('is-set', geo.hasScale(g));
     el.scaleChipText.textContent = geo.hasScale(g)
@@ -1379,7 +1383,7 @@
      'fName', 'fClient', 'fJobRef', 'fBy', 'fDate', 'fMppx', 'fAnchorE', 'fAnchorN',
      'fPerCubic', 'fMinPer', 'fPerExtra', 'fFixed', 'fDupEvery', 'fSplitEvery', 'fBlanks',
      'fPrefix', 'fPad', 'fPilePrefix', 'fPilePad', 'fPileStart', 'fNamingOrder', 'pileOrderHint',
-     'pilePreview', 'samplePreview', 'fFigW', 'fileImage', 'fileProject', 'fileWorld',
+     'pilePreview', 'samplePreview', 'buildStamp', 'fFigW', 'fileImage', 'fileProject', 'fileWorld',
      'btnUndo', 'btnRedo'
     ].forEach(function (id) { el[id] = $(id); });
 
@@ -1786,6 +1790,10 @@
     if (window.top === window.self && 'serviceWorker' in navigator &&
         /^https?:$/.test(location.protocol)) {
       navigator.serviceWorker.register('sw.js', { scope: './' }).catch(function () {});
+      // A new worker taking over means the files on disk just changed.
+      navigator.serviceWorker.addEventListener('controllerchange', function () {
+        toast('App updated — reload to pick up the new version.');
+      });
     }
 
     setInterval(function () { if (S.dirty) store.saveLocal(); }, 8000);

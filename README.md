@@ -160,7 +160,11 @@ with the fix accuracy alongside it.
 ### Offline and installing it
 
 The site registers a service worker, so once loaded it works with no coverage —
-which is the normal state of a stockpile site. On iOS open it in Safari and use
+which is the normal state of a stockpile site. Code and markup are fetched
+network-first, so online you always run the current deploy and the cache is only
+reached for when there is no signal; photos and icons are cache-first since they
+do not change. The build stamp at the bottom of **Setup** says which version you
+are on. On iOS open it in Safari and use
 Share → **Add to Home Screen**; on Android, Chrome's **Install app**. It then
 runs full-screen with no browser chrome, and keeps the screen awake while you're
 in field mode.
