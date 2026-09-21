@@ -108,6 +108,37 @@ To rename one thing: click it in the list or on the map and edit the **Name** or
 **ID** box, use the pencil on any list row, press <kbd>F2</kbd>, or double-click
 it on the map.
 
+## Composite samples
+
+A composite is one laboratory sample, with one ID, built from material taken at
+several spots. The app keeps that distinction: many increment locations on the
+photo, one name everywhere else.
+
+Set a sample's type to **Composite**, then **Mark increments on the map** and
+click each spot you will take material from. The marker moves to the centre of
+its increments and carries a `×5` on its label; the increments draw as small
+dots tied back to it. Dragging the marker moves the whole cluster; dragging one
+increment moves just that one.
+
+To do a whole pile at once, use the pile editor's **Composite** option and set
+the increments per composite. The pile is split into sections along its longest
+axis and one composite is built per section, so a result can still be traced to
+part of the pile — interleaving the increments instead would make every
+composite cover the whole pile, which is *n* replicates of one answer rather
+than *n* samples.
+
+What comes out:
+
+| Export | A composite appears as |
+| --- | --- |
+| Sample schedule (CSV) | One row, one ID, `Increments` filled in, positioned at the centre |
+| Increment locations (CSV) | One row per spot — `SP01, 1, of 5`, with coordinates |
+| GeoJSON | One feature with a `MultiPoint` geometry |
+| KML | One placemark with a `MultiGeometry` |
+
+The plan summary counts a composite as **one** laboratory sample and also shows
+the **spots to visit**, which is what the field day actually costs.
+
 ## Sampling density
 
 The rule is yours to set, under **Plan**:

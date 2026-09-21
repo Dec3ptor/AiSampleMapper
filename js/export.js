@@ -122,7 +122,7 @@
         s.status,
         s.depthFrom, s.depthTo,
         s.matrix,
-        s.type === 'composite' ? s.increments : '',
+        s.type === 'composite' ? ASM.plan.incrementCount(s) : '',
         absolute ? ground.x.toFixed(2) : '',
         absolute ? ground.y.toFixed(2) : '',
         ll ? ll.lat.toFixed(7) : '',
@@ -162,6 +162,38 @@
     });
     return rows;
   }
+
+  /* One row per increment. The composite keeps its single id, so the field
+   * team can walk the spots while the laboratory still receives one sample. */
+  function incrementRows(p, imgH) {
+    var g = p.georef;
+    var absolute = ASM.geo.isAbsolute(g);
+    var rows = [['Sample_ID', 'Increment', 'Of', 'Stockpile', 'Easting_mE', 'Northing_mN',
+      'Latitude', 'Longitude', 'Image_col_px', 'Image_row_px']];
+
+    p.samples.slice()
+      .sort(function (a, b) { return String(a.code).localeCompare(String(b.code), 'en', { numeric: true }); })
+      .forEach(function (s) {
+        if (!s.incPts || s.incPts.length < 2) return;
+        var pile = ASM.store.pileById(s.stockpileId);
+        s.incPts.forEach(function (pt, i) {
+          var ground = ASM.geo.pixelToGround(g, pt[0], pt[1], imgH);
+          var ll = absolute ? ASM.geo.groundToLatLon(g, ground.x, ground.y) : null;
+          rows.push([
+            s.code, i + 1, s.incPts.length,
+            pile ? pile.name : '',
+            absolute ? ground.x.toFixed(2) : '',
+            absolute ? ground.y.toFixed(2) : '',
+            ll ? ll.lat.toFixed(7) : '',
+            ll ? ll.lon.toFixed(7) : '',
+            pt[0].toFixed(1), pt[1].toFixed(1)
+          ]);
+        });
+      });
+    return rows;
+  }
+
+  function incrementsCSV(p, imgH) { return csvRows(incrementRows(p, imgH)); }
 
   function samplesCSV(p, imgH) { return csvRows(sampleRows(p, imgH)); }
   function pilesCSV(p) { return csvRows(pileRows(p)); }
@@ -206,12 +238,18 @@
       var pile = ASM.store.pileById(s.stockpileId);
       features.push({
         type: 'Feature',
-        geometry: { type: 'Point', coordinates: coord(s.px, s.py) },
+        geometry: (s.incPts && s.incPts.length > 1)
+          ? {
+            type: 'MultiPoint',
+            coordinates: s.incPts.map(function (pt) { return coord(pt[0], pt[1]); })
+          }
+          : { type: 'Point', coordinates: coord(s.px, s.py) },
         properties: {
           feature: 'sample',
           sample_id: s.code,
           stockpile: pile ? pile.name : null,
           sample_type: ASM.plan.typeById(s.type).name,
+          increments: ASM.plan.incrementCount(s),
           status: s.status,
           depth_from_m: s.depthFrom,
           depth_to_m: s.depthTo,
@@ -274,11 +312,18 @@
     out.push('</Folder><Folder><name>Sample locations</name>');
     p.samples.forEach(function (s) {
       var pile = ASM.store.pileById(s.stockpileId);
+      var multi = s.incPts && s.incPts.length > 1;
+      var geometry = multi
+        ? '<MultiGeometry>' + s.incPts.map(function (pt) {
+          return '<Point><coordinates>' + ll(pt[0], pt[1]) + '</coordinates></Point>';
+        }).join('') + '</MultiGeometry>'
+        : '<Point><coordinates>' + ll(s.px, s.py) + '</coordinates></Point>';
       out.push('<Placemark><name>' + esc(s.code) + '</name>' +
         '<styleUrl>#t_' + s.type + '</styleUrl>' +
         '<description>' + esc((pile ? pile.name + ' — ' : '') + ASM.plan.typeById(s.type).name +
+          (multi ? ', composite of ' + s.incPts.length + ' increments' : '') +
           ', ' + s.depthFrom + '–' + s.depthTo + ' m') + '</description>' +
-        '<Point><coordinates>' + ll(s.px, s.py) + '</coordinates></Point></Placemark>');
+        geometry + '</Placemark>');
     });
     out.push('</Folder></Document></kml>');
     return out.join('\n');
@@ -455,6 +500,8 @@
     saveFile: saveFile,
     copyText: copyText,
     samplesCSV: samplesCSV,
+    incrementsCSV: incrementsCSV,
+    incrementRows: incrementRows,
     pilesCSV: pilesCSV,
     sampleRows: sampleRows,
     pileRows: pileRows,

@@ -113,6 +113,46 @@
     var p = toScreen(view, s.px, s.py);
     var r = (opts.radius || 7) * (opts.scale || 1);
 
+    // A composite's increments: small dots tied back to the one sample, and
+    // one id, they make up. Drawn first so the marker sits on top of them.
+    if (s.incPts && s.incPts.length > 1) {
+      var ir = Math.max(2.5, r * 0.5);
+      ctx.beginPath();
+      s.incPts.forEach(function (pt) {
+        var q = toScreen(view, pt[0], pt[1]);
+        ctx.moveTo(p[0], p[1]);
+        ctx.lineTo(q[0], q[1]);
+      });
+      ctx.strokeStyle = 'rgba(8,12,10,0.55)';
+      ctx.lineWidth = 3.2;
+      ctx.stroke();
+      ctx.strokeStyle = t.color;
+      ctx.lineWidth = 1.1;
+      ctx.stroke();
+
+      s.incPts.forEach(function (pt) {
+        var q = toScreen(view, pt[0], pt[1]);
+        ctx.beginPath();
+        ctx.arc(q[0], q[1], ir + 1.6, 0, Math.PI * 2);
+        ctx.fillStyle = 'rgba(8,12,10,0.6)';
+        ctx.fill();
+        ctx.beginPath();
+        ctx.arc(q[0], q[1], ir, 0, Math.PI * 2);
+        ctx.fillStyle = s.status === 'collected' ? t.color : 'rgba(12,18,15,0.7)';
+        ctx.fill();
+        ctx.lineWidth = 1.7;
+        ctx.strokeStyle = t.color;
+        ctx.stroke();
+        if (opts.selected) {
+          ctx.beginPath();
+          ctx.arc(q[0], q[1], ir + 3.5, 0, Math.PI * 2);
+          ctx.strokeStyle = 'rgba(255,255,255,0.85)';
+          ctx.lineWidth = 1.2;
+          ctx.stroke();
+        }
+      });
+    }
+
     ctx.beginPath();
     ctx.arc(p[0], p[1], r + 2.5, 0, Math.PI * 2);
     ctx.fillStyle = 'rgba(8,12,10,0.6)';
@@ -145,7 +185,9 @@
     }
 
     if (opts.label && s.code) {
-      labelPill(ctx, p[0] + r + 6, p[1], s.code, {
+      var text = s.code;
+      if (s.incPts && s.incPts.length > 1) text += ' \u00D7' + s.incPts.length;
+      labelPill(ctx, p[0] + r + 6, p[1], text, {
         size: 11 * (opts.scale || 1),
         color: '#F4F8F6',
         bg: 'rgba(10,16,14,0.8)'

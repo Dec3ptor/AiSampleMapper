@@ -39,6 +39,17 @@
     return SAMPLE_TYPES[0];
   }
 
+  /* A composite is one laboratory sample built from several increments. When
+   * the increments have been marked on the photo their count is the truth;
+   * otherwise fall back to the number typed on the sample. */
+  function incrementCount(sample) {
+    if (!sample) return 0;
+    if (sample.incPts && sample.incPts.length) return sample.incPts.length;
+    return sample.type === 'composite' ? (parseInt(sample.increments, 10) || 0) : 1;
+  }
+
+  function isComposite(sample) { return !!sample && sample.type === 'composite'; }
+
   function defaultRule() {
     return {
       mode: 'rate',
@@ -128,6 +139,8 @@
     SAMPLE_TYPES: SAMPLE_TYPES,
     formById: formById,
     typeById: typeById,
+    incrementCount: incrementCount,
+    isComposite: isComposite,
     defaultRule: defaultRule,
     defaultQA: defaultQA,
     volumeOf: volumeOf,

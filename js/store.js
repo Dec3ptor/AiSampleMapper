@@ -37,6 +37,8 @@
         idScope: 'site',        // 'site' = SP01.. across the job, 'pile' = per stockpile
         pad: 2,
         method: 'systematic',   // default distribution for auto-placement
+        autoType: 'discrete',   // auto-placement makes discrete or composite samples
+        incPerComposite: 5,
         insetM: 1.0,            // keep generated points off the toe of the pile
         defaultDepthFrom: 0,
         defaultDepthTo: 0.5,
@@ -243,6 +245,9 @@
       px: px, py: py,
       type: opts.type || 'discrete',
       increments: opts.increments || 5,
+      // Where each increment of a composite is taken. One sample, one id,
+      // many locations. Empty for a single-point sample.
+      incPts: opts.incPts ? opts.incPts.slice() : [],
       depthFrom: p.settings.defaultDepthFrom,
       depthTo: p.settings.defaultDepthTo,
       matrix: 'Soil',
@@ -251,6 +256,44 @@
       notes: ''
     };
     p.samples.push(s);
+    return s;
+  }
+
+  /* A composite reports itself at the centre of its increments, so the marker,
+   * the label and every exported coordinate agree with the material. */
+  function syncComposite(s) {
+    if (!s || !s.incPts || !s.incPts.length) return s;
+    var sx = 0, sy = 0;
+    s.incPts.forEach(function (pt) { sx += pt[0]; sy += pt[1]; });
+    s.px = sx / s.incPts.length;
+    s.py = sy / s.incPts.length;
+    return s;
+  }
+
+  function addIncrement(s, px, py) {
+    if (!s.incPts) s.incPts = [];
+    // The first increment inherits the position the sample already had.
+    if (!s.incPts.length) s.incPts.push([s.px, s.py]);
+    s.incPts.push([px, py]);
+    syncComposite(s);
+    return s;
+  }
+
+  function removeIncrement(s, index) {
+    if (!s.incPts || index < 0 || index >= s.incPts.length) return s;
+    s.incPts.splice(index, 1);
+    if (s.incPts.length === 1) s.incPts = [];   // back to a plain single point
+    syncComposite(s);
+    return s;
+  }
+
+  /** Shift a whole composite, increments included. */
+  function moveSample(s, px, py) {
+    var dx = px - s.px, dy = py - s.py;
+    s.px = px; s.py = py;
+    if (s.incPts && s.incPts.length) {
+      s.incPts = s.incPts.map(function (pt) { return [pt[0] + dx, pt[1] + dy]; });
+    }
     return s;
   }
 
@@ -308,9 +351,11 @@
     var p = state.project;
     var primary = 0, qa = 0, collected = 0, volume = 0, areaM2 = 0, required = 0;
     var anyVolume = false;
+    var visits = 0;   // spots the field team physically stops at
     p.samples.forEach(function (s) {
       if (s.type === 'duplicate' || s.type === 'split') qa++; else primary++;
       if (s.status === 'collected') collected++;
+      visits += (s.incPts && s.incPts.length > 1) ? s.incPts.length : 1;
     });
     p.stockpiles.forEach(function (pile) {
       var st = pileStats(pile);
@@ -328,6 +373,7 @@
       qaPlaced: qa,
       qaRequired: need,
       collected: collected,
+      visits: visits,
       labSamples: primary + qa + need.blanks
     };
   }
@@ -366,6 +412,11 @@
     out.seq = Object.assign({ pile: 0, sample: 0 }, obj.seq || {});
     out.stockpiles = (obj.stockpiles || []).filter(function (s) { return s && s.polygon && s.polygon.length > 2; });
     out.samples = (obj.samples || []).filter(function (s) { return s && isFinite(s.px) && isFinite(s.py); });
+    out.samples.forEach(function (s) {
+      s.incPts = Array.isArray(s.incPts)
+        ? s.incPts.filter(function (pt) { return pt && isFinite(pt[0]) && isFinite(pt[1]); })
+        : [];
+    });
     // Rebuild counters so new items never collide with loaded ids.
     out.seq.pile = Math.max(out.seq.pile, out.stockpiles.length);
     out.seq.sample = Math.max(out.seq.sample, out.samples.length);
@@ -438,6 +489,8 @@
     formatPileName: formatPileName, nextPileNumber: nextPileNumber, renumberPiles: renumberPiles,
     sortForNaming: sortForNaming, describeNamingOrder: describeNamingOrder,
     addSample: addSample, sampleById: sampleById, removeSample: removeSample, pileAt: pileAt,
+    syncComposite: syncComposite, addIncrement: addIncrement, removeIncrement: removeIncrement,
+    moveSample: moveSample,
     recode: recode, totals: totals,
     saveLocal: saveLocal, loadLocal: loadLocal, clearLocal: clearLocal,
     saveImageBlob: saveImageBlob, loadImageBlob: loadImageBlob, clearImageBlob: clearImageBlob,

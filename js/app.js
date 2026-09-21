@@ -98,8 +98,22 @@
     S.project.samples.forEach(function (s) {
       var d = Math.hypot(s.px - px, s.py - py);
       if (d < tol && d < bestD) { bestD = d; best = s; }
+      // Clicking any increment selects the sample it belongs to.
+      (s.incPts || []).forEach(function (pt) {
+        var di = Math.hypot(pt[0] - px, pt[1] - py);
+        if (di < tol && di < bestD) { bestD = di; best = s; }
+      });
     });
     return best;
+  }
+
+  function incrementAt(s, px, py) {
+    if (!s || !s.incPts || s.incPts.length < 2) return -1;
+    var tol = (9 * (S.project.settings.markerScale || 1)) / view.scale;
+    for (var i = 0; i < s.incPts.length; i++) {
+      if (Math.hypot(s.incPts[i][0] - px, s.incPts[i][1] - py) < tol) return i;
+    }
+    return -1;
   }
 
   function vertexAt(pile, px, py) {
@@ -137,6 +151,12 @@
     if (ui.pending === 'calibrate') {
       html = '<b>Calibrating scale.</b> Click the two ends of a length you know on the ground — a container, a lane width, a fence line.' +
         (ui.draft.length === 1 ? ' One point set.' : '');
+    } else if (ui.pending === 'increments') {
+      var t = store.sampleById(ui.incTarget);
+      var n = t ? plan.incrementCount(t) : 0;
+      html = '<b>Marking increments for ' + esc(t ? t.code : '') + '.</b> Click each spot you will ' +
+        'take material from \u2014 they all go into this one sample. ' +
+        '<b>' + n + '</b> so far. <kbd>Esc</kbd> or <kbd>Enter</kbd> when done.';
     } else if (ui.pending === 'anchor') {
       html = '<b>Pinning coordinates.</b> Click the exact feature those NZTM coordinates belong to.';
     } else if (ui.tool === 'measure' && ui.measure.length) {
@@ -196,6 +216,16 @@
     }
     if (ui.pending === 'anchor') { finishAnchor(p); return; }
 
+    if (ui.pending === 'increments') {
+      var target = store.sampleById(ui.incTarget);
+      if (!target) { ui.pending = null; updateHud(); return; }
+      store.checkpoint();
+      store.addIncrement(target, p[0], p[1]);
+      afterChange();
+      updateHud();
+      return;
+    }
+
     if (isPan || ui.tool === 'select') {
       if (!isPan && ui.tool === 'select') {
         // Vertex drag on the selected outline takes priority over everything.
@@ -205,6 +235,15 @@
           if (vi >= 0) {
             store.checkpoint();
             ui.drag = { kind: 'vertex', pile: selPile, index: vi };
+            return;
+          }
+        }
+        var selSample = store.sampleById(ui.selectedSampleId);
+        if (selSample) {
+          var ii = incrementAt(selSample, p[0], p[1]);
+          if (ii >= 0) {
+            store.checkpoint();
+            ui.drag = { kind: 'increment', sample: selSample, index: ii };
             return;
           }
         }
@@ -287,8 +326,11 @@
         view.tx = ui.drag.tx + (ev.clientX - ui.drag.x);
         view.ty = ui.drag.ty + (ev.clientY - ui.drag.y);
       } else if (ui.drag.kind === 'sample') {
-        ui.drag.sample.px = p[0];
-        ui.drag.sample.py = p[1];
+        store.moveSample(ui.drag.sample, p[0], p[1]);
+        ui.drag.moved = true;
+      } else if (ui.drag.kind === 'increment') {
+        ui.drag.sample.incPts[ui.drag.index] = p;
+        store.syncComposite(ui.drag.sample);
         ui.drag.moved = true;
       } else if (ui.drag.kind === 'vertex') {
         ui.drag.pile.polygon[ui.drag.index] = p;
@@ -311,7 +353,7 @@
         d.sample.stockpileId = store.pileAt(d.sample.px, d.sample.py);
         store.recode();
         afterChange();
-      } else if (d.kind === 'vertex') {
+      } else if (d.kind === 'vertex' || (d.kind === 'increment' && d.moved)) {
         afterChange();
       }
     }
@@ -643,6 +685,7 @@
     box.hidden = false;
     var st = store.pileStats(pile);
     var isCustom = pile.formId === 'custom';
+    var asComposite = S.project.settings.autoType === 'composite';
 
     box.innerHTML =
       '<div class="group-head"><h3 class="group-title">' + esc(pile.name) + '</h3>' +
@@ -687,18 +730,37 @@
         '<option value="stratified"' + (S.project.settings.method === 'stratified' ? ' selected' : '') + '>Stratified random</option>' +
         '<option value="random"' + (S.project.settings.method === 'random' ? ' selected' : '') + '>Simple random</option>' +
       '</select></label>' +
+      '<div class="seg seg-wide" role="group" aria-label="Sample form">' +
+        '<button class="seg-btn' + (asComposite ? '' : ' is-active') + '" data-autotype="discrete" type="button">Discrete</button>' +
+        '<button class="seg-btn' + (asComposite ? ' is-active' : '') + '" data-autotype="composite" type="button">Composite</button>' +
+      '</div>' +
+      (asComposite
+        ? '<label class="field"><span>Increments per composite</span>' +
+          '<input data-f="incPerComposite" type="number" min="2" max="40" step="1" value="' +
+          esc(S.project.settings.incPerComposite) + '"></label>'
+        : '') +
       '<div class="btn-row">' +
-        '<button class="btn btn-block btn-primary" data-act="auto">Place ' + (st.required != null ? st.required : 'n') + ' locations</button>' +
+        '<button class="btn btn-block btn-primary" data-act="auto">Place ' +
+          (st.required != null ? st.required : 'n') +
+          (asComposite ? ' composites' : ' locations') + '</button>' +
         '<button class="btn btn-sm" data-act="clear">Clear</button>' +
       '</div>' +
       '<p class="hint">Replaces the locations already in this stockpile. Points are kept ' +
-        esc(S.project.settings.insetM) + ' m clear of the toe.</p>';
+        esc(S.project.settings.insetM) + ' m clear of the toe.' +
+        (asComposite
+          ? ' The pile is split into sections along its longest axis, one composite per section, ' +
+            'so a result can still be traced to part of the pile.'
+          : '') + '</p>';
 
     box.querySelectorAll('[data-f]').forEach(function (input) {
       input.addEventListener('change', function () {
         store.checkpoint();
         var k = input.dataset.f, v = input.value;
         if (k === 'method') { S.project.settings.method = v; afterChange(); return; }
+        if (k === 'incPerComposite') {
+          S.project.settings.incPerComposite = Math.max(2, Math.min(40, parseInt(v, 10) || 5));
+          afterChange(); return;
+        }
         if (k === 'volumeOverride' || k === 'requiredOverride') {
           pile[k] = v === '' ? null : parseFloat(v);
         } else if (k === 'heightM' || k === 'customFactor') {
@@ -719,6 +781,13 @@
       afterChange();
       toast(pile.name + ' deleted.');
     });
+    box.querySelectorAll('[data-autotype]').forEach(function (b) {
+      b.addEventListener('click', function () {
+        S.project.settings.autoType = b.dataset.autotype;
+        store.saveLocal();
+        renderPiles();
+      });
+    });
     box.querySelector('[data-act="auto"]').addEventListener('click', function () { autoPlace(pile); });
     box.querySelector('[data-act="clear"]').addEventListener('click', function () {
       store.checkpoint();
@@ -726,6 +795,35 @@
       store.recode();
       afterChange();
     });
+  }
+
+  /* A composite is one laboratory sample with one id, taken from several
+   * spots. This block is where those spots get marked. */
+  function compositeBlock(s) {
+    var marked = (s.incPts || []).length;
+    var out = '<div class="georef-state' + (marked > 1 ? ' is-ok' : '') + '">' +
+      '<strong>Composite \u2014 one sample, one ID.</strong><br>' +
+      (marked > 1
+        ? marked + ' increment' + (marked === 1 ? '' : 's') + ' marked on the photo. ' +
+          'The marker sits at their centre, and that is the position exported for ' +
+          esc(s.code) + '.'
+        : 'No increment spots marked yet, so the schedule will simply record the count you type.') +
+      '</div>';
+
+    if (marked <= 1) {
+      out += '<label class="field"><span>Increments combined</span>' +
+        '<input data-f="increments" type="number" min="2" step="1" value="' + esc(s.increments) + '"></label>';
+    }
+
+    out += '<div class="btn-row">' +
+      '<button class="btn btn-sm btn-block btn-primary" data-act="markinc">' +
+        (marked > 1 ? 'Mark more increments' : 'Mark increments on the map') + '</button>' +
+      (marked > 1
+        ? '<button class="btn btn-sm" data-act="incundo">Remove last</button>' +
+          '<button class="btn btn-sm" data-act="incclear">Clear</button>'
+        : '') +
+      '</div>';
+    return out;
   }
 
   function renameButton(label) {
@@ -758,19 +856,63 @@
     if (n == null) { toast('Set the scale and a pile height first — the count comes from the volume.', true); return; }
     var g = S.project.georef;
     var insetPx = geo.hasScale(g) ? (S.project.settings.insetM / g.mppx) : 2;
-    var pts = geom.generate(S.project.settings.method, pile.polygon, n, insetPx, Date.now() % 100000);
+    var set = S.project.settings;
+    var seed = Date.now() % 100000;
+    var composite = set.autoType === 'composite';
+    var k = composite ? Math.max(2, Math.min(40, Math.round(set.incPerComposite) || 5)) : 1;
+
+    var pts = geom.generate(set.method, pile.polygon, n * k, insetPx, seed);
     if (!pts.length) {
       toast('No room inside that outline for the inset. Reduce it in Plan settings.', true);
       return;
     }
+
     store.checkpoint();
     S.project.samples = S.project.samples.filter(function (s) { return s.stockpileId !== pile.id; });
-    pts.forEach(function (pt) {
-      store.addSample(pt[0], pt[1], { stockpileId: pile.id, type: 'discrete' });
+
+    if (!composite) {
+      pts.forEach(function (pt) {
+        store.addSample(pt[0], pt[1], { stockpileId: pile.id, type: 'discrete' });
+      });
+      store.recode();
+      afterChange();
+      toast(pts.length + ' locations placed in ' + pile.name +
+        (pts.length < n ? ' (' + (n - pts.length) + ' would not fit)' : '') + '.');
+      return;
+    }
+
+    // Split the pile into n sections along its longest axis and build one
+    // composite per section. Interleaving the increments instead would make
+    // every composite cover the whole pile -- n replicates of the same answer,
+    // with no way to tell which end a result came from.
+    var bb = geom.bbox(pile.polygon);
+    var alongX = bb.w >= bb.h;
+    var sorted = pts.slice().sort(function (a, b) {
+      return alongX ? (a[0] - b[0]) || (a[1] - b[1]) : (a[1] - b[1]) || (a[0] - b[0]);
+    });
+    var groups = [];
+    for (var i = 0; i < n; i++) {
+      groups.push(sorted.slice(
+        Math.floor(i * sorted.length / n),
+        Math.floor((i + 1) * sorted.length / n)
+      ));
+    }
+
+    var made = 0;
+    groups.forEach(function (g) {
+      if (!g.length) return;
+      var smp = store.addSample(g[0][0], g[0][1], {
+        stockpileId: pile.id, type: 'composite', incPts: g.length > 1 ? g : []
+      });
+      smp.increments = g.length;
+      store.syncComposite(smp);
+      made++;
     });
     store.recode();
     afterChange();
-    toast(pts.length + ' locations placed in ' + pile.name + (pts.length < n ? ' (' + (n - pts.length) + ' would not fit)' : '') + '.');
+    toast(made + ' composite sample' + (made === 1 ? '' : 's') + ' in ' + pile.name +
+      ', ' + k + ' increments each \u2014 ' + pts.length + ' spots to visit.');
+
   }
 
   /* ---- Samples ---- */
@@ -803,6 +945,7 @@
           (s.codeLocked ? '<span class="row-pin" title="Custom ID, kept when renumbering">\u2022</span>' : '') +
         '</span>' +
         '<span class="row-meta">' + esc(pile ? pile.name : 'off-pile') + ' · ' + esc(t.name) +
+        (s.type === 'composite' ? ' \u00D7' + plan.incrementCount(s) : '') +
         ' · ' + esc(s.depthFrom) + '–' + esc(s.depthTo) + ' m</span></span>' +
         '<span class="row-tag' + (s.status === 'collected' ? ' is-ok' : '') + '">' + esc(s.status) + '</span>' +
         renameButton('Rename ' + (s.code || 'sample'));
@@ -865,9 +1008,7 @@
           }).join('') + '</select></label>' +
       '</div>' +
 
-      (s.type === 'composite'
-        ? '<label class="field"><span>Increments combined</span><input data-f="increments" type="number" min="2" step="1" value="' + esc(s.increments) + '"></label>'
-        : '') +
+      (s.type === 'composite' ? compositeBlock(s) : '') +
 
       '<div class="field-row">' +
         '<label class="field"><span>Depth from (m)</span><input data-f="depthFrom" type="number" step="0.1" min="0" value="' + esc(s.depthFrom) + '"></label>' +
@@ -917,6 +1058,32 @@
       ui.selectedSampleId = null;
       store.recode();
       afterChange();
+    });
+
+    var mark = box.querySelector('[data-act="markinc"]');
+    if (mark) mark.addEventListener('click', function () {
+      if (!S.image) { toast('Load an aerial image first.', true); return; }
+      ui.pending = 'increments';
+      ui.incTarget = s.id;
+      setToolSilently('select');
+      updateHud();
+      requestDraw();
+      if (window.matchMedia('(max-width: 820px)').matches) openPanel(false);
+    });
+
+    var incUndo = box.querySelector('[data-act="incundo"]');
+    if (incUndo) incUndo.addEventListener('click', function () {
+      store.checkpoint();
+      store.removeIncrement(s, s.incPts.length - 1);
+      afterChange();
+    });
+
+    var incClear = box.querySelector('[data-act="incclear"]');
+    if (incClear) incClear.addEventListener('click', function () {
+      store.checkpoint();
+      s.incPts = [];
+      afterChange();
+      toast('Increment spots cleared. ' + esc(s.code) + ' is a single point again.');
     });
 
     var unlock = box.querySelector('[data-act="unlock"]');
@@ -1019,7 +1186,10 @@
         t.qaRequired.duplicates + ' dup · ' + t.qaRequired.splits + ' split · ' + t.qaRequired.blanks + ' blank',
         t.qaPlaced >= t.qaRequired.duplicates + t.qaRequired.splits ? 'is-ok' : 'is-warn') +
       tile('QA/QC placed', t.qaPlaced, 'on the map') +
-      tile('Laboratory samples', t.labSamples, 'primary + QA/QC', 'is-wide');
+      tile('Laboratory samples', t.labSamples,
+        t.visits > t.primary + t.qaPlaced
+          ? 'primary + QA/QC · ' + t.visits + ' spots to visit on site'
+          : 'primary + QA/QC', 'is-wide');
 
     // Shortfalls
     var short = [];
@@ -1114,6 +1284,7 @@
     var p = S.project;
     var imgH = S.image ? S.image.height : 0;
     if (kind === 'samples-csv') return { text: ASM.exporter.samplesCSV(p, imgH), name: ASM.exporter.slug(p.name) + '-samples.csv', mime: 'text/csv' };
+    if (kind === 'increments-csv') return { text: ASM.exporter.incrementsCSV(p, imgH), name: ASM.exporter.slug(p.name) + '-increments.csv', mime: 'text/csv' };
     if (kind === 'piles-csv') return { text: ASM.exporter.pilesCSV(p), name: ASM.exporter.slug(p.name) + '-stockpiles.csv', mime: 'text/csv' };
     if (kind === 'geojson') return { text: ASM.exporter.geojson(p, imgH), name: ASM.exporter.slug(p.name) + '.geojson', mime: 'application/geo+json', altExt: 'json' };
     if (kind === 'kml') {
@@ -1135,6 +1306,10 @@
       });
       return;
     }
+    if (kind === 'increments-csv' && !hasMarkedIncrements()) {
+      toast('No composite has its increment spots marked yet — set a sample to Composite and use "Mark increments on the map".', true);
+      return;
+    }
     var out = exportText(kind);
     if (!out) { toast('Georeference the image first — KML needs real coordinates.', true); return; }
     if (!S.project.samples.length && kind !== 'project') toast('Nothing placed yet, exporting an empty schedule.');
@@ -1146,7 +1321,15 @@
     });
   }
 
+  function hasMarkedIncrements() {
+    return S.project.samples.some(function (s) { return s.incPts && s.incPts.length > 1; });
+  }
+
   function doCopy(kind) {
+    if (kind === 'increments-csv' && !hasMarkedIncrements()) {
+      toast('No composite has its increment spots marked yet.', true);
+      return;
+    }
     var out = exportText(kind);
     if (!out) { toast('Georeference the image first — KML needs real coordinates.', true); return; }
     ASM.exporter.copyText(out.text).then(function (ok) {
@@ -1510,6 +1693,7 @@
         if (!focusRename()) toast('Select a stockpile or a location first.');
         break;
       case 'Enter':
+        if (ui.pending === 'increments') { ui.pending = null; updateHud(); requestDraw(); break; }
         if (ui.tool === 'pile' && ui.draft.length > 2) closeDraft();
         break;
       case 'Escape':
