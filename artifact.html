@@ -356,6 +356,30 @@
           </div>
 
           <div class="group">
+            <h3 class="group-title">Print / PDF</h3>
+            <div class="field-row">
+              <label class="field"><span>Paper</span><select id="pPaper">
+                <option value="a4">A4</option><option value="a3">A3</option></select></label>
+              <label class="field"><span>Orientation</span><select id="pOrient">
+                <option value="auto">Auto</option>
+                <option value="landscape">Landscape</option><option value="portrait">Portrait</option></select></label>
+            </div>
+            <label class="field"><span>Scale</span><select id="pScale">
+              <option value="fit">Fit the whole plan to one sheet</option>
+              <option value="1000">1:1000</option>
+              <option value="500">1:500</option>
+              <option value="250">1:250</option>
+              <option value="100">1:100</option>
+            </select></label>
+            <label class="check"><input type="checkbox" id="pOverview" checked><span>Sheet index when it splits</span></label>
+            <label class="check"><input type="checkbox" id="pSchedule" checked><span>Sample schedule table</span></label>
+            <div class="preview" id="pReadout"></div>
+            <button class="btn btn-block btn-primary" id="btnPrint" type="button">Print / Save as PDF</button>
+            <p class="hint">Pick <em>Save as PDF</em> as the destination in the print dialogue. Set the same
+              paper size and orientation there, and turn margins off — each sheet already carries its own.</p>
+          </div>
+
+          <div class="group">
             <h3 class="group-title">Project file</h3>
             <div class="btn-row">
               <button class="btn btn-block" data-export="project" type="button">Save .json</button>
@@ -430,6 +454,9 @@
 
 <div class="toast" id="toast" hidden></div>
 
+<style id="printPageStyle"></style>
+<div class="printdoc" id="printDoc"></div>
+
 <input type="file" id="fileImage" accept="image/*" hidden>
 <input type="file" id="fileProject" accept=".json,application/json" hidden>
 <input type="file" id="fileWorld" accept=".jgw,.pgw,.tfw,.wld,.txt" hidden>
@@ -441,4 +468,5 @@
 <script src="js/render.js"></script>
 <script src="js/export.js"></script>
 <script src="js/field.js"></script>
+<script src="js/print.js"></script>
 <script src="js/app.js"></script>

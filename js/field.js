@@ -219,7 +219,7 @@
   }
 
   function setTarget(s) {
-    F.targetId = s ? s.id : null;
+    F.targetId = s ? s.id : null;   // any sample, done ones included
     if (s && app().zoomTo && !F.fix) app().zoomTo(s.px, s.py, null);
     renderNav();
     renderHud();
@@ -244,9 +244,20 @@
 
   /* ===================== Actions ===================== */
 
-  function markDone() {
+  /* One button: collect what is outstanding, put back what was collected by
+   * mistake. Tapping a done marker on the map is how you get to the second. */
+  function toggleDone() {
     var t = target();
     if (!t) { toast('Nothing selected.', true); return; }
+
+    if (t.status === 'collected') {
+      store.checkpoint();
+      store.markPlanned(t);
+      commit();
+      toast(t.code + ' put back to outstanding.');
+      return;
+    }
+
     store.checkpoint();
     store.markCollected(t);
     if (F.fix && F.fix.accuracy != null) t.gpsAccuracy = Math.round(F.fix.accuracy * 10) / 10;
@@ -260,6 +271,13 @@
   function markSkipped() {
     var t = target();
     if (!t) return;
+    if (t.status === 'skipped') {
+      store.checkpoint();
+      store.markPlanned(t);
+      commit();
+      toast(t.code + ' put back to outstanding.');
+      return;
+    }
     var why = window.prompt('Why is ' + t.code + ' not being sampled?', t.notes || 'No access');
     if (why === null) return;
     store.checkpoint();
@@ -329,16 +347,34 @@
     el.fill.style.width = pct.toFixed(1) + '%';
     el.done.textContent = pr.done + '/' + pr.total;
     el.left.textContent = pr.left + ' left' + (pr.skipped ? ' · ' + pr.skipped + ' skipped' : '');
-    el.rate.textContent = pr.perHour ? pr.perHour.toFixed(1) + '/hr' : '—/hr';
+    el.rate.textContent = pr.perHour
+      ? pr.perHour.toFixed(1) + '/hr'
+      : (pr.idle ? 'paused' : '—/hr');
     el.eta.textContent = pr.etaHours != null
       ? fmtDuration(pr.etaHours) + ' · ' + fmtClock(pr.finishAt)
-      : (pr.done < 2 ? 'rate after 2' : '—');
+      : (pr.idle ? 'rate resumes on next' : (pr.done < 2 ? 'rate after 2' : '—'));
+
+    // Say so when the stint is a slice of the total, so the pace is not read
+    // as covering everything done across several days.
+    if (pr.sessionDone && pr.sessionDone < pr.done) {
+      el.left.textContent += ' · ' + pr.sessionDone + ' this stint';
+    }
   }
 
   function renderNav() {
     if (!F.on) return;
     var t = target();
     var v = vector();
+
+    if (el.done2) {
+      var collected = t && t.status === 'collected';
+      var skipped = t && t.status === 'skipped';
+      el.done2.textContent = collected ? 'Un-collect' : 'Collected';
+      el.done2.classList.toggle('is-undo', !!collected);
+      el.skip2.textContent = skipped ? 'Reinstate' : 'No access';
+      el.done2.disabled = !t;
+      el.skip2.disabled = !t;
+    }
 
     el.target.textContent = t ? t.code : 'All done';
     el.sub.textContent = t
@@ -414,9 +450,10 @@
     el.ui = el.fieldUI; el.fill = el.fpFill; el.done = el.fpDone; el.left = el.fpLeft;
     el.rate = el.fpRate; el.eta = el.fpEta; el.card = el.navCard; el.arrow = el.navArrow;
     el.target = el.navTarget; el.sub = el.navSub; el.dist = el.navDist; el.src = el.navSrc;
+    el.done2 = $('fieldDone'); el.skip2 = $('fieldSkip');
 
     $('fieldExit').addEventListener('click', exit);
-    $('fieldDone').addEventListener('click', markDone);
+    $('fieldDone').addEventListener('click', toggleDone);
     $('fieldSkip').addEventListener('click', markSkipped);
     $('fieldNext').addEventListener('click', skipToNext);
     $('fieldMove').addEventListener('click', moveHere);

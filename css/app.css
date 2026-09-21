@@ -844,6 +844,8 @@ button, input, select, textarea { font: inherit; color: inherit; }
 .fbtn:active { transform: scale(.975); }
 
 .fbtn-done { background: var(--f-done); border-color: var(--f-done); color: #062615; flex: 1.7 !important; font-size: 17px; }
+.fbtn-done.is-undo { background: transparent; border-color: var(--f-line); color: var(--f-ink); }
+.fbtn[disabled] { opacity: .4; }
 .fbtn-warn { color: var(--f-warn); }
 .fbtn-ghost { color: var(--f-dim); }
 .fbtn-sm { min-height: 42px; font-size: 13.5px; font-weight: 500; color: var(--f-dim); }
@@ -863,4 +865,134 @@ button, input, select, textarea { font: inherit; color: inherit; }
   .navtext b { font-size: 15.5px; }
   .fbtn { font-size: 15px; min-height: 50px; }
   .fbtn-done { font-size: 16px; }
+}
+
+/* ---------- Checkbox rows ---------- */
+.check {
+  display: flex; align-items: center; gap: 8px;
+  font-size: 12.5px; color: var(--ink-2); cursor: pointer;
+}
+.check input { width: 15px; height: 15px; accent-color: var(--accent); flex: none; margin: 0; }
+
+/* ============================================================
+   Paper. Hidden on screen; the print sheet below is the whole
+   document once the browser switches media.
+   ============================================================ */
+.printdoc { display: none; }
+
+@media print {
+  html, body {
+    height: auto;
+    overflow: visible;
+    background: #FFFFFF;
+    color: #16211D;
+  }
+  body > .app,
+  body > .field,
+  body > .toast,
+  body > input { display: none !important; }
+
+  .printdoc { display: block !important; }
+
+  .sheet {
+    page-break-after: always;
+    break-after: page;
+    background: #FFFFFF;
+    color: #16211D;
+    font-family: Barlow, system-ui, sans-serif;
+    box-sizing: border-box;
+  }
+  .sheet:not(.sheet-text) { overflow: hidden; }
+  .sheet-text { height: auto !important; }
+  .sheet:last-child { page-break-after: auto; break-after: auto; }
+
+  .sheet-inner {
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    box-sizing: border-box;
+  }
+  /* object-fit rather than max-height: a percentage height against an
+     auto-sized grid row is indefinite, so max-height never bound and a tall
+     plan overflowed its box and lost its bottom sheet. */
+  .sheet-map { flex: none; overflow: hidden; }
+  .sheet-map img {
+    width: 100%; height: 100%;
+    object-fit: contain; object-position: center;
+    display: block;
+  }
+
+  /* --- title block --- */
+  .pl-block {
+    display: grid;
+    grid-template-columns: 1.9fr 1fr 1fr 0.95fr;
+    grid-template-rows: 1fr auto;
+    gap: 0 5mm;
+    border-top: 0.6mm solid #16211D;
+    padding-top: 2.2mm;
+    margin-top: 2.6mm;
+    box-sizing: border-box;
+  }
+  .pl-eyebrow {
+    font-family: "Barlow Condensed", Barlow, sans-serif;
+    font-size: 7pt; font-weight: 600; letter-spacing: .09em;
+    text-transform: uppercase; color: #5A6B64;
+  }
+  .pl-id h1 {
+    font-size: 14pt; font-weight: 700; margin: .4mm 0 0;
+    letter-spacing: -.01em; line-height: 1.1;
+  }
+  .pl-sub {
+    font-size: 8.5pt; color: #3E4D47; margin-top: .6mm;
+    overflow-wrap: normal; word-break: keep-all;
+  }
+  .pl-caption { font-size: 7.5pt; color: #5A6B64; margin-top: .8mm; }
+
+  .pl-cols { margin: 0; display: grid; gap: 1mm; align-content: start; }
+  .pl-pair dt {
+    font-family: "Barlow Condensed", Barlow, sans-serif;
+    font-size: 6.4pt; font-weight: 600; letter-spacing: .07em;
+    text-transform: uppercase; color: #6B7D76;
+  }
+  .pl-pair dd {
+    margin: 0; font-size: 8pt; line-height: 1.15;
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+  }
+
+  .pl-side { text-align: right; }
+  .pl-sheet { font-size: 10.5pt; font-weight: 700; }
+  .pl-legend {
+    margin-top: 1.6mm; display: flex; flex-wrap: wrap;
+    gap: 1mm 3mm; justify-content: flex-end; font-size: 7.5pt;
+  }
+  .pl-key i {
+    width: 2.6mm; height: 2.6mm; border-radius: 50%;
+    display: inline-block; border: .2mm solid #1B2523;
+    margin-right: 1mm; vertical-align: -.3mm;
+  }
+
+  .pl-basis {
+    grid-column: 1 / -1;
+    font-size: 7pt; color: #5A6B64;
+    border-top: .2mm solid #CFD8D4;
+    padding-top: 1.1mm; margin-top: 1.6mm;
+  }
+
+  /* --- schedule sheet --- */
+  .pl-h2 { font-size: 13pt; font-weight: 700; margin: 0 0 3.5mm; }
+  .pl-table { width: 100%; border-collapse: collapse; font-size: 8pt; }
+  .pl-table th {
+    text-align: left; padding: 1.2mm .9mm;
+    border-bottom: .4mm solid #16211D;
+    font-family: "Barlow Condensed", Barlow, sans-serif;
+    font-size: 7.5pt; font-weight: 600; letter-spacing: .06em; text-transform: uppercase;
+  }
+  .pl-table td {
+    padding: 1mm .9mm; border-bottom: .15mm solid #D2DAD6;
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+  }
+  .pl-table tr { page-break-inside: avoid; break-inside: avoid; }
+  .pl-table thead { display: table-header-group; }
+  .pl-tick { width: 20mm; }
+  .pl-table td.pl-tick { border-bottom: .15mm solid #8D9C96; }
 }

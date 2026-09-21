@@ -423,10 +423,17 @@
   }
 
   /* --- Field progress ----------------------------------------------------
-   * Rate comes from a rolling window of the most recent completions, not the
-   * whole day: a slow start while you find the site should not drag the
-   * estimate down for the rest of the afternoon. */
-  function progress(windowSize) {
+   * The rate has to describe the stint you are actually in. Two things would
+   * otherwise wreck it: a long break -- overnight, lunch, driving between
+   * sites -- counted as working time, and a slow start while you find the site
+   * dragging the estimate down all afternoon.
+   *
+   * So completions are cut into sessions at any gap longer than SESSION_BREAK,
+   * only the current session counts, and within it a rolling window tracks the
+   * pace you are working at now. */
+  var SESSION_BREAK = 90 * 60 * 1000;
+
+  function progress(windowSize, breakMs) {
     var list = state.project.samples;
     var done = 0, skipped = 0;
     var times = [];
@@ -439,11 +446,23 @@
       }
     });
     var left = list.length - done - skipped;
+    var gap = breakMs || SESSION_BREAK;
 
     times.sort(function (a, b) { return a - b; });
+
+    // Walk back from the newest while the steps stay short: that run is the
+    // current stint. Anything the other side of a long gap is a previous one.
+    var from = times.length ? times.length - 1 : 0;
+    while (from > 0 && (times[from] - times[from - 1]) <= gap) from--;
+    var session = times.slice(from);
+
+    // A stint that ended more than a break ago is over; there is no live pace
+    // to report until the next sample goes in.
+    var idle = session.length ? (Date.now() - session[session.length - 1]) > gap : false;
+
     var perHour = null;
-    var win = times.slice(-(windowSize || 6));
-    if (win.length >= 2) {
+    var win = session.slice(-(windowSize || 6));
+    if (win.length >= 2 && !idle) {
       var hours = (win[win.length - 1] - win[0]) / 3600000;
       if (hours > 0) perHour = (win.length - 1) / hours;
     }
@@ -457,7 +476,10 @@
       perHour: perHour,
       etaHours: etaHours,
       finishAt: etaHours != null ? new Date(Date.now() + etaHours * 3600000) : null,
-      lastAt: times.length ? times[times.length - 1] : null
+      lastAt: times.length ? times[times.length - 1] : null,
+      sessionDone: session.length,
+      sessionStart: session.length ? session[0] : null,
+      idle: idle
     };
   }
 
@@ -471,6 +493,29 @@
     s.collectedDate = d.getFullYear() + '-' +
       String(d.getMonth() + 1).padStart(2, '0') + '-' +
       String(d.getDate()).padStart(2, '0');
+    return s;
+  }
+
+  /** Put a sample back to planned, clearing what marking it done recorded.
+   *  The timestamp has to go too, or an undone sample keeps skewing the rate. */
+  function markPlanned(s) {
+    if (!s) return null;
+    s.status = 'planned';
+    s.collectedAt = null;
+    s.collectedDate = '';
+    return s;
+  }
+
+  /** The single way status changes, so the stamps never drift out of step. */
+  function setStatus(s, status) {
+    if (!s) return null;
+    if (status === 'collected') return markCollected(s);
+    if (status === 'planned') return markPlanned(s);
+    if (status === 'skipped') {
+      s.status = 'skipped';
+      s.collectedAt = null;
+      s.collectedDate = '';
+    }
     return s;
   }
 
@@ -613,7 +658,9 @@
     addSample: addSample, sampleById: sampleById, removeSample: removeSample, pileAt: pileAt,
     syncComposite: syncComposite, addIncrement: addIncrement, removeIncrement: removeIncrement,
     moveSample: moveSample,
-    recode: recode, totals: totals, progress: progress, markCollected: markCollected,
+    recode: recode, totals: totals, progress: progress,
+    markCollected: markCollected, markPlanned: markPlanned, setStatus: setStatus,
+    SESSION_BREAK: SESSION_BREAK,
     isQA: isQA,
     saveLocal: saveLocal, loadLocal: loadLocal, clearLocal: clearLocal,
     saveImageBlob: saveImageBlob, loadImageBlob: loadImageBlob, clearImageBlob: clearImageBlob,

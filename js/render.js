@@ -412,8 +412,11 @@
         // Below this size the pill covers the outline it is meant to name.
         var bb = ASM.geom.bbox(pile.polygon);
         if (!o.forExport && Math.min(bb.w, bb.h) * view.scale < 34) return;
+        // Along the top edge rather than the centroid: samples cluster in the
+        // middle of a pile, and two pills on the same spot read as neither.
         var c = ASM.geom.centroid(pile.polygon);
-        var s = toScreen(view, c[0], c[1]);
+        var s = toScreen(view, c[0], bb.y0);
+        s[1] += 12 * (o.labelScale || 1);
         var st = ASM.store.pileStats(pile);
         var txt = pile.name;
         if (st.required != null) txt += '  ' + st.placed + '/' + st.required;

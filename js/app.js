@@ -2,7 +2,7 @@
 (function (ASM) {
   'use strict';
 
-  var BUILD = '2026-09-21.5';   // bumped on each deploy; shown under Setup
+  var BUILD = '2026-09-21.6';   // bumped on each deploy; shown under Setup
 
   var store = ASM.store, geo = ASM.geo, geom = ASM.geom, plan = ASM.plan, R = ASM.render;
   var S = store.state;
@@ -1081,6 +1081,7 @@
         if (k === 'code') { s.code = v; s.codeLocked = true; }
         else if (k === 'stockpileId') { s.stockpileId = v || null; store.recode(); }
         else if (k === 'depthFrom' || k === 'depthTo' || k === 'increments') s[k] = parseFloat(v);
+        else if (k === 'status') store.setStatus(s, v);
         else { s[k] = v; if (k === 'type') store.recode(); }
         afterChange();
       });
@@ -1274,7 +1275,36 @@
     el.samplePreview.innerHTML = '<b>' + out.map(esc).join('</b> · <b>') + '</b> · …';
   }
 
+  function printOptions() {
+    var sc = el.pScale.value;
+    return {
+      paper: el.pPaper.value,
+      orientation: el.pOrient.value,
+      scale: sc === 'fit' ? 'fit' : parseInt(sc, 10),
+      overview: el.pOverview.checked,
+      schedule: el.pSchedule.checked
+    };
+  }
+
+  function renderPrintReadout() {
+    if (!el.pReadout || !ASM.printer) return;
+    var g = S.project.georef;
+    if (!geo.hasScale(g)) {
+      el.pReadout.innerHTML = '<b>Fitted to one sheet.</b> Set the image scale to print at a stated ratio.';
+      return;
+    }
+    var opts = printOptions();
+    var text = ASM.printer.describe(opts);
+    var L = ASM.printer.layout(opts);
+    if (!L.fitted && L.sheets > 12) {
+      el.pReadout.innerHTML = '<b>' + esc(text) + '</b> — a lot of paper; a smaller scale would fit fewer.';
+    } else {
+      el.pReadout.innerHTML = '<b>' + esc(text) + '</b>';
+    }
+  }
+
   function renderExportHints() {
+    renderPrintReadout();
     var g = S.project.georef;
     el.gisHint.textContent = geo.isAbsolute(g)
       ? 'Coordinates are projected from ' + g.crs + ' to WGS84 longitude/latitude, which is what GeoJSON and KML require.'
@@ -1384,6 +1414,7 @@
      'fPerCubic', 'fMinPer', 'fPerExtra', 'fFixed', 'fDupEvery', 'fSplitEvery', 'fBlanks',
      'fPrefix', 'fPad', 'fPilePrefix', 'fPilePad', 'fPileStart', 'fNamingOrder', 'pileOrderHint',
      'pilePreview', 'samplePreview', 'buildStamp', 'fFigW', 'fileImage', 'fileProject', 'fileWorld',
+     'pPaper', 'pOrient', 'pScale', 'pOverview', 'pSchedule', 'pReadout',
      'btnUndo', 'btnRedo'
     ].forEach(function (id) { el[id] = $(id); });
 
@@ -1646,6 +1677,19 @@
     });
 
     // Exports
+    ['pPaper', 'pOrient', 'pScale', 'pOverview', 'pSchedule'].forEach(function (id) {
+      el[id].addEventListener('change', renderPrintReadout);
+    });
+    $('btnPrint').addEventListener('click', function () {
+      if (!S.image) { toast('Load an aerial image first.', true); return; }
+      toast('Laying out the sheets…');
+      ASM.printer.print(printOptions()).then(function (res) {
+        toast(res.sheets + ' sheet' + (res.sheets === 1 ? '' : 's') + ' sent to the print dialogue.');
+      }).catch(function () {
+        toast('Could not build the print layout.', true);
+      });
+    });
+
     document.querySelectorAll('[data-export]').forEach(function (b) {
       b.addEventListener('click', function () { doExport(b.dataset.export); });
     });

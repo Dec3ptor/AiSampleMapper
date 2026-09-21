@@ -128,9 +128,16 @@ big targets, a running count, and an arrow to the next sample.
 
 **Progress and pace.** A bar across the top shows done / total, how many are
 left, and a rate in samples per hour worked out from the times you actually
-ticked them off — a rolling window of the last six, so a slow start finding the
-site doesn't drag the estimate down all afternoon. From that it gives time
-remaining and a finish clock. The rate appears once two are done.
+ticked them off. From that it gives time remaining and a finish clock; the rate
+appears once two are done.
+
+Two things would otherwise wreck that number, so neither counts: **long breaks**
+— overnight, lunch, driving between sites — are not working time, so completions
+are cut into stints at any gap over 90 minutes and only the current stint counts;
+and within a stint a rolling window of the last six tracks the pace you are
+working at *now* rather than a slow start finding the site. Leave it overnight
+and the rate shows *paused* until the next sample goes in, instead of averaging
+your day across sixteen hours.
 
 **Getting to the point.** The arrow in the corner card points at the sample
 you're walking to, with the distance and the ID. Tap **Compass** once and the
@@ -149,7 +156,8 @@ circle is drawn at its real size rather than hidden.
 | Button | What it does |
 | --- | --- |
 | Collected | Marks it done and stamps the time the rate is built from |
-| No access | Marks it skipped and records why |
+| Un-collect | Tap a finished marker and the same button puts it back, clearing its timestamp so it stops counting toward the rate |
+| No access | Marks it skipped and records why. Tapping a skipped one offers **Reinstate** |
 | Move here | Moves the sample to where you're standing, recording the GPS accuracy |
 | Add here | Drops a new sample at your position |
 
@@ -224,6 +232,29 @@ choose is printed on every export so the basis travels with the numbers.
 sample, so they add laboratory samples but not locations. Defaults are one
 duplicate per 20 primary samples, no inter-lab splits, no blanks.
 
+## Printing
+
+**Export → Print / PDF** lays the plan onto paper. Choose **Save as PDF** as the
+destination in the print dialogue, or send it to a printer.
+
+| Setting | |
+| --- | --- |
+| Paper | A4 or A3 |
+| Orientation | Auto, landscape or portrait. Auto tries both and keeps whichever fills more of the sheet — a tall site on a landscape page wastes half the paper |
+| Scale | Fit the whole plan to one sheet, or hold a real 1:1000 / 1:500 / 1:250 / 1:100 and let it run across as many sheets as that needs |
+| Sheet index | An overview sheet with the sheets numbered on it, when it splits |
+| Sample schedule | A table of every location with a tick column to sign off in the field |
+
+The readout tells you what you are about to get — *"2 × 3 = 6 sheets at 1:250,
+A3 landscape"* — before you commit any paper to it. Split sheets overlap
+slightly so nothing is lost in a join, and every sheet carries the title block,
+legend, scale bar and north arrow.
+
+It goes through the browser's own print dialogue rather than bundling a PDF
+library: no network needed, and the title block prints as real text at printer
+resolution instead of being flattened into an image. Turn the dialogue's margins
+off — each sheet already carries its own.
+
 ## Exports
 
 | Output | What it is |
@@ -297,6 +328,7 @@ js/store.js                project state, ids, undo, persistence
 js/render.js               canvas drawing, shared by the map and the figure
 js/export.js               CSV, GeoJSON, KML, PNG figure, project file
 js/field.js                on-site mode: GPS, progress, rate, field edits
+js/print.js                paper layout: sheet splitting, title block, schedule
 js/app.js                  interaction, panels, wiring
 sw.js                      offline shell, so the site works with no coverage
 manifest.webmanifest       makes it installable to a home screen
