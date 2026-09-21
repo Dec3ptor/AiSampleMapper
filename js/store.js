@@ -32,6 +32,7 @@
         pilePrefix: 'SP',       // stockpile / windrow naming convention
         pilePad: 1,             // 1 = WR1, 2 = WR01, 3 = WR001
         pileStart: 1,
+        namingOrder: 'northSouth',   // 'northSouth' | 'westEast' | 'created'
         idPrefix: 'SP',
         idScope: 'site',        // 'site' = SP01.. across the job, 'pile' = per stockpile
         pad: 2,
@@ -97,6 +98,30 @@
 
   /* --- Stockpiles -------------------------------------------------------- */
 
+  /* The order numbers are handed out in. Position-based ordering walks the
+   * site the way a field team would; 'created' keeps the order things were
+   * drawn, which is what you want when you place them in a deliberate sequence
+   * or when the photo is not north-up. */
+  function sortForNaming(items, getXY) {
+    var mode = state.project.settings.namingOrder || 'northSouth';
+    var list = items.slice();
+    if (mode === 'created') return list;   // arrays are already in draw order
+    list.sort(function (a, b) {
+      var pa = getXY(a), pb = getXY(b);
+      return mode === 'westEast'
+        ? (pa[0] - pb[0]) || (pa[1] - pb[1])
+        : (pa[1] - pb[1]) || (pa[0] - pb[0]);
+    });
+    return list;
+  }
+
+  function describeNamingOrder() {
+    var mode = state.project.settings.namingOrder || 'northSouth';
+    if (mode === 'created') return 'the order they were drawn';
+    if (mode === 'westEast') return 'left to right across the photo';
+    return 'top to bottom down the photo';
+  }
+
   /** Build a stockpile name from the project's convention, e.g. WR07. */
   function formatPileName(n) {
     var st = state.project.settings;
@@ -128,9 +153,8 @@
   function renumberPiles() {
     var p = state.project;
     var start = isFinite(p.settings.pileStart) ? Math.round(p.settings.pileStart) : 1;
-    var order = p.stockpiles.slice().sort(function (a, b) {
-      var ca = ASM.geom.centroid(a.polygon), cb = ASM.geom.centroid(b.polygon);
-      return (ca[1] - cb[1]) || (ca[0] - cb[0]);
+    var order = sortForNaming(p.stockpiles, function (pile) {
+      return ASM.geom.centroid(pile.polygon);
     });
     // Never hand out a number that a hand-typed name already occupies.
     var taken = {};
@@ -257,9 +281,10 @@
     var siteN = 0;
 
     order.forEach(function (pid) {
-      var inPile = p.samples.filter(function (s) { return s.stockpileId === pid; });
-      // Down the page, then across — the order a field team would walk them.
-      inPile.sort(function (a, b) { return (a.py - b.py) || (a.px - b.px); });
+      var inPile = sortForNaming(
+        p.samples.filter(function (s) { return s.stockpileId === pid; }),
+        function (s) { return [s.px, s.py]; }
+      );
       var pileN = 0;
       inPile.forEach(function (s) {
         if (s.codeLocked && s.code) return;
@@ -411,6 +436,7 @@
     checkpoint: checkpoint, undo: undo, redo: redo, canUndo: canUndo, canRedo: canRedo,
     addPile: addPile, pileById: pileById, removePile: removePile, pileStats: pileStats,
     formatPileName: formatPileName, nextPileNumber: nextPileNumber, renumberPiles: renumberPiles,
+    sortForNaming: sortForNaming, describeNamingOrder: describeNamingOrder,
     addSample: addSample, sampleById: sampleById, removeSample: removeSample, pileAt: pileAt,
     recode: recode, totals: totals,
     saveLocal: saveLocal, loadLocal: loadLocal, clearLocal: clearLocal,

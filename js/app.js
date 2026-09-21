@@ -965,6 +965,10 @@
     setVal(el.fPilePrefix, p.settings.pilePrefix);
     setVal(el.fPilePad, p.settings.pilePad);
     setVal(el.fPileStart, p.settings.pileStart);
+    setVal(el.fNamingOrder, p.settings.namingOrder || 'northSouth');
+    el.pileOrderHint.textContent =
+      'New outlines take the next free number automatically. Renumbering runs in ' +
+      store.describeNamingOrder() + ', and keeps any name you typed yourself.';
     renderNamingPreview();
 
     document.querySelectorAll('#idScope .seg-btn').forEach(function (b) {
@@ -1159,7 +1163,7 @@
      'ruleRate', 'ruleBanded', 'ruleFixed', 'gisHint', 'stCoord', 'stZoom', 'stHint', 'stTally',
      'fName', 'fClient', 'fJobRef', 'fBy', 'fDate', 'fMppx', 'fAnchorE', 'fAnchorN',
      'fPerCubic', 'fMinPer', 'fPerExtra', 'fFixed', 'fDupEvery', 'fSplitEvery', 'fBlanks',
-     'fPrefix', 'fPad', 'fPilePrefix', 'fPilePad', 'fPileStart',
+     'fPrefix', 'fPad', 'fPilePrefix', 'fPilePad', 'fPileStart', 'fNamingOrder', 'pileOrderHint',
      'pilePreview', 'samplePreview', 'fFigW', 'fileImage', 'fileProject', 'fileWorld',
      'btnUndo', 'btnRedo'
     ].forEach(function (id) { el[id] = $(id); });
@@ -1347,6 +1351,16 @@
     numField(el.fBlanks, function (v) { S.project.qa.blanks = v; }, true);
     numField(el.fPad, function (v) { S.project.settings.pad = Math.max(1, Math.min(4, v)); store.recode(); });
 
+    el.fNamingOrder.addEventListener('change', function () {
+      store.checkpoint();
+      S.project.settings.namingOrder = el.fNamingOrder.value;
+      store.recode();   // sample ids follow the order immediately
+      afterChange();
+      toast(el.fNamingOrder.value === 'created'
+        ? 'Numbering now follows the order things are drawn.'
+        : 'Numbering now runs ' + store.describeNamingOrder() + '.');
+    });
+
     // Stockpile naming: commit on change, preview while typing.
     ['fPilePrefix', 'fPilePad', 'fPileStart'].forEach(function (id) {
       el[id].addEventListener('input', renderNamingPreview);
@@ -1369,6 +1383,7 @@
       var r = store.renumberPiles();
       afterChange();
       toast('Renumbered ' + r.changed + ' stockpile' + (r.changed === 1 ? '' : 's') +
+        ' in ' + store.describeNamingOrder() +
         (r.kept ? ' \u2014 ' + r.kept + ' custom name' + (r.kept === 1 ? '' : 's') + ' kept.' : '.'));
     });
 

@@ -75,16 +75,29 @@ to see what the imagery really holds.
 
 Set the convention once under **Plan → Naming** and it applies as you draw.
 
+**Numbering order** decides which thing gets number 1. It applies to both
+renumbering stockpiles and the automatic sample IDs:
+
+| Setting | Order |
+| --- | --- |
+| Top to bottom | Down the photo — north to south when the photo is north-up (default) |
+| Left to right | Across the photo — west to east |
+| The order I drew them | Draw order, with no reference to position at all |
+
+Pick the last one to switch position-based numbering off. It is the one to use
+when you place things in a deliberate sequence, or when the photo is not
+north-up so "down the page" does not mean north to south.
+
 **Stockpiles and windrows** take a prefix, a digit count and a starting number —
 `WR` + 2 digits gives `WR01`, `WR02`, `WR03`. A preview shows the result as you
 type. Every new outline takes the next free number on its own, so drawing a run
-of windrows numbers itself. **Renumber in map order** re-applies the convention
-down the site, north to south, which is usually what you want after adding or
-deleting a few.
+of windrows numbers itself. **Renumber** re-applies the convention in whichever order
+is set above, which is usually what you want after adding or deleting a few.
 
 **Sample locations** work the same way, either numbered across the whole site
 (`SP01`, `SP02`) or within each pile (`WR01-01`, `WR01-02`), which is the more
-useful form once a pile has its own name.
+useful form once a pile has its own name. Sample IDs re-flow whenever the plan
+changes, so the numbering order matters most here.
 
 Anything you type yourself is pinned: renumbering leaves it alone, reports how
 many it kept, and routes around its number so two features can never share a
