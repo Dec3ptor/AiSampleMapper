@@ -330,8 +330,14 @@
     requestDraw();
   }
 
-  function onDblClick() {
-    if (ui.tool === 'pile' && ui.draft.length > 2) closeDraft();
+  function onDblClick(ev) {
+    if (ui.tool === 'pile' && ui.draft.length > 2) { closeDraft(); return; }
+    if (ui.tool !== 'select' || !S.image) return;
+    var p = eventImagePoint(ev);
+    var hit = sampleAt(p[0], p[1]);
+    if (hit) { selectSample(hit.id); focusRename(); return; }
+    var pid = store.pileAt(p[0], p[1]);
+    if (pid) { selectPile(pid); focusRename(); }
   }
 
   /* ===================== Scale capture ===================== */
@@ -593,19 +599,31 @@
       else if (st.shortfall > 0) { tagCls += ' is-warn'; tagTxt = st.placed + '/' + st.required; }
       else { tagCls += ' is-ok'; tagTxt = st.placed + '/' + st.required; }
 
-      var b = document.createElement('button');
-      b.type = 'button';
+      var b = document.createElement('div');
       b.className = 'row' + (ui.selectedPileId === pile.id ? ' is-active' : '');
+      b.setAttribute('role', 'button');
+      b.tabIndex = 0;
       b.innerHTML =
         '<span class="row-swatch" style="background:' + esc(pile.color) + '"></span>' +
         '<span class="row-main"><span class="row-name">' + esc(pile.name) + '</span>' +
         '<span class="row-meta">' + (st.areaM2 != null ? geo.fmtArea(st.areaM2) : 'no scale') +
         (st.volume != null ? ' · ' + geo.fmtVol(st.volume) : '') + '</span></span>' +
-        '<span class="' + tagCls + '">' + tagTxt + '</span>';
-      b.addEventListener('click', function () {
+        '<span class="' + tagCls + '">' + tagTxt + '</span>' +
+        renameButton('Rename ' + pile.name);
+
+      function open() {
         selectPile(pile.id);
         var c = geom.centroid(pile.polygon);
         zoomTo(c[0], c[1], view.scale);
+      }
+      b.addEventListener('click', open);
+      b.addEventListener('keydown', function (e) {
+        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open(); }
+      });
+      b.querySelector('.row-edit').addEventListener('click', function (e) {
+        e.stopPropagation();
+        open();
+        focusRename();
       });
       list.appendChild(b);
     });
@@ -616,7 +634,12 @@
   function renderPileEditor() {
     var box = el.pileEditor;
     var pile = store.pileById(ui.selectedPileId);
-    if (!pile) { box.hidden = true; box.innerHTML = ''; return; }
+    if (!pile) {
+      box.hidden = !S.project.stockpiles.length;
+      box.innerHTML = '<div class="list-empty">Pick a stockpile above, or click one on the map, to ' +
+        'rename it, set its height and auto-place sample locations.</div>';
+      return;
+    }
     box.hidden = false;
     var st = store.pileStats(pile);
     var isCustom = pile.formId === 'custom';
@@ -683,7 +706,7 @@
         } else {
           pile[k] = v;
         }
-        if (k === 'name') store.recode();
+        if (k === 'name') { pile.nameLocked = true; store.recode(); }
         afterChange();
       });
     });
@@ -703,6 +726,24 @@
       store.recode();
       afterChange();
     });
+  }
+
+  function renameButton(label) {
+    return '<button class="row-edit" type="button" title="Rename (F2)" aria-label="' + esc(label) + '">' +
+      '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20h4L19 9l-4-4L4 16Zm12.5-16.5 4 4" ' +
+      'fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/></svg>' +
+      '</button>';
+  }
+
+  /** Put the cursor in the name/ID box of whatever is selected. */
+  function focusRename() {
+    var node = null;
+    if (ui.selectedSampleId) node = document.querySelector('#sampleEditor [data-f="code"]');
+    else if (ui.selectedPileId) node = document.querySelector('#pileEditor [data-f="name"]');
+    if (!node) return false;
+    node.focus();
+    node.select();
+    return true;
   }
 
   function tile(k, v, sub, cls) {
@@ -751,19 +792,33 @@
     items.forEach(function (s) {
       var t = plan.typeById(s.type);
       var pile = store.pileById(s.stockpileId);
-      var b = document.createElement('button');
-      b.type = 'button';
+      var b = document.createElement('div');
       b.className = 'row' + (ui.selectedSampleId === s.id ? ' is-active' : '');
+      b.setAttribute('role', 'button');
+      b.tabIndex = 0;
       b.innerHTML =
         '<span class="row-dot" style="border-color:' + esc(t.color) + ';background:' +
           (s.status === 'collected' ? esc(t.color) : 'transparent') + '"></span>' +
-        '<span class="row-main"><span class="row-name">' + esc(s.code || '(unnumbered)') + '</span>' +
+        '<span class="row-main"><span class="row-name">' + esc(s.code || '(unnumbered)') +
+          (s.codeLocked ? '<span class="row-pin" title="Custom ID, kept when renumbering">\u2022</span>' : '') +
+        '</span>' +
         '<span class="row-meta">' + esc(pile ? pile.name : 'off-pile') + ' · ' + esc(t.name) +
         ' · ' + esc(s.depthFrom) + '–' + esc(s.depthTo) + ' m</span></span>' +
-        '<span class="row-tag' + (s.status === 'collected' ? ' is-ok' : '') + '">' + esc(s.status) + '</span>';
-      b.addEventListener('click', function () {
+        '<span class="row-tag' + (s.status === 'collected' ? ' is-ok' : '') + '">' + esc(s.status) + '</span>' +
+        renameButton('Rename ' + (s.code || 'sample'));
+
+      function open() {
         selectSample(s.id);
         zoomTo(s.px, s.py, Math.max(view.scale, 3));
+      }
+      b.addEventListener('click', open);
+      b.addEventListener('keydown', function (e) {
+        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open(); }
+      });
+      b.querySelector('.row-edit').addEventListener('click', function (e) {
+        e.stopPropagation();
+        open();
+        focusRename();
       });
       list.appendChild(b);
     });
@@ -774,7 +829,12 @@
   function renderSampleEditor() {
     var box = el.sampleEditor;
     var s = store.sampleById(ui.selectedSampleId);
-    if (!s) { box.hidden = true; box.innerHTML = ''; return; }
+    if (!s) {
+      box.hidden = !S.project.samples.length;
+      box.innerHTML = '<div class="list-empty">Pick a location above, or click a marker on the map, ' +
+        'to change its ID, type, depth and status.</div>';
+      return;
+    }
     box.hidden = false;
 
     var g = S.project.georef;
@@ -830,6 +890,11 @@
             : 'pixel ' + s.px.toFixed(0) + ', ' + s.py.toFixed(0))) +
       '</code></div>' +
 
+      (s.codeLocked
+        ? '<button class="btn btn-sm btn-block" data-act="unlock">Return ' + esc(s.code) +
+          ' to automatic numbering</button>'
+        : '') +
+
       '<div class="btn-row">' +
         '<button class="btn btn-block" data-act="dup">Add field duplicate here</button>' +
       '</div>';
@@ -852,6 +917,15 @@
       ui.selectedSampleId = null;
       store.recode();
       afterChange();
+    });
+
+    var unlock = box.querySelector('[data-act="unlock"]');
+    if (unlock) unlock.addEventListener('click', function () {
+      store.checkpoint();
+      s.codeLocked = false;
+      store.recode();
+      afterChange();
+      toast('Back to automatic numbering.');
     });
 
     box.querySelector('[data-act="dup"]').addEventListener('click', function () {
@@ -888,6 +962,10 @@
     setVal(el.fBlanks, p.qa.blanks);
     setVal(el.fPrefix, p.settings.idPrefix);
     setVal(el.fPad, p.settings.pad);
+    setVal(el.fPilePrefix, p.settings.pilePrefix);
+    setVal(el.fPilePad, p.settings.pilePad);
+    setVal(el.fPileStart, p.settings.pileStart);
+    renderNamingPreview();
 
     document.querySelectorAll('#idScope .seg-btn').forEach(function (b) {
       b.classList.toggle('is-active', b.dataset.scope === p.settings.idScope);
@@ -958,6 +1036,32 @@
 
   function setVal(node, v) {
     if (node && document.activeElement !== node) node.value = v;
+  }
+
+  /* Show what the current convention produces, from the live field values so
+   * the preview tracks typing rather than the last committed setting. */
+  function renderNamingPreview() {
+    var p = S.project, st = p.settings;
+    var prefix = el.fPilePrefix.value !== '' ? el.fPilePrefix.value : (st.pilePrefix || '');
+    var pad = Math.max(1, Math.min(4, parseInt(el.fPilePad.value, 10) || st.pilePad || 1));
+    var start = parseInt(el.fPileStart.value, 10);
+    if (!isFinite(start)) start = isFinite(st.pileStart) ? st.pileStart : 1;
+
+    function pileName(n) { return prefix + String(n).padStart(pad, '0'); }
+    var names = [pileName(start), pileName(start + 1), pileName(start + 2)];
+    el.pilePreview.innerHTML = '<b>' + names.map(esc).join('</b> · <b>') + '</b> · …';
+
+    var sPrefix = el.fPrefix.value !== '' ? el.fPrefix.value : (st.idPrefix || '');
+    var sPad = Math.max(1, Math.min(4, parseInt(el.fPad.value, 10) || st.pad || 1));
+    var out;
+    if (st.idScope === 'pile') {
+      var first = p.stockpiles.length ? p.stockpiles[0].name : pileName(start);
+      out = [1, 2].map(function (n) { return first + '-' + String(n).padStart(sPad, '0'); });
+      out.push(pileName(start + 1) + '-' + String(1).padStart(sPad, '0'));
+    } else {
+      out = [1, 2, 3].map(function (n) { return sPrefix + String(n).padStart(sPad, '0'); });
+    }
+    el.samplePreview.innerHTML = '<b>' + out.map(esc).join('</b> · <b>') + '</b> · …';
   }
 
   function renderExportHints() {
@@ -1055,7 +1159,8 @@
      'ruleRate', 'ruleBanded', 'ruleFixed', 'gisHint', 'stCoord', 'stZoom', 'stHint', 'stTally',
      'fName', 'fClient', 'fJobRef', 'fBy', 'fDate', 'fMppx', 'fAnchorE', 'fAnchorN',
      'fPerCubic', 'fMinPer', 'fPerExtra', 'fFixed', 'fDupEvery', 'fSplitEvery', 'fBlanks',
-     'fPrefix', 'fPad', 'fFigW', 'fileImage', 'fileProject', 'fileWorld',
+     'fPrefix', 'fPad', 'fPilePrefix', 'fPilePad', 'fPileStart',
+     'pilePreview', 'samplePreview', 'fFigW', 'fileImage', 'fileProject', 'fileWorld',
      'btnUndo', 'btnRedo'
     ].forEach(function (id) { el[id] = $(id); });
 
@@ -1242,6 +1347,34 @@
     numField(el.fBlanks, function (v) { S.project.qa.blanks = v; }, true);
     numField(el.fPad, function (v) { S.project.settings.pad = Math.max(1, Math.min(4, v)); store.recode(); });
 
+    // Stockpile naming: commit on change, preview while typing.
+    ['fPilePrefix', 'fPilePad', 'fPileStart'].forEach(function (id) {
+      el[id].addEventListener('input', renderNamingPreview);
+    });
+    el.fPilePrefix.addEventListener('change', function () {
+      store.checkpoint();
+      S.project.settings.pilePrefix = el.fPilePrefix.value;
+      afterChange();
+    });
+    numField(el.fPilePad, function (v) {
+      S.project.settings.pilePad = Math.max(1, Math.min(4, Math.round(v)));
+    });
+    numField(el.fPileStart, function (v) {
+      S.project.settings.pileStart = Math.round(v);
+    }, true);
+
+    $('btnRenumberPiles').addEventListener('click', function () {
+      if (!S.project.stockpiles.length) { toast('No stockpiles to renumber yet.', true); return; }
+      store.checkpoint();
+      var r = store.renumberPiles();
+      afterChange();
+      toast('Renumbered ' + r.changed + ' stockpile' + (r.changed === 1 ? '' : 's') +
+        (r.kept ? ' \u2014 ' + r.kept + ' custom name' + (r.kept === 1 ? '' : 's') + ' kept.' : '.'));
+    });
+
+    el.fPrefix.addEventListener('input', renderNamingPreview);
+    el.fPad.addEventListener('input', renderNamingPreview);
+
     el.fPrefix.addEventListener('change', function () {
       store.checkpoint();
       S.project.settings.idPrefix = el.fPrefix.value || 'SP';
@@ -1257,11 +1390,12 @@
       });
     });
     $('btnRecode').addEventListener('click', function () {
+      var custom = S.project.samples.filter(function (s) { return s.codeLocked && s.code; }).length;
       store.checkpoint();
-      S.project.samples.forEach(function (s) { s.codeLocked = false; });
       store.recode();
       afterChange();
-      toast('Locations renumbered in map order.');
+      toast('Renumbered in map order' +
+        (custom ? ' \u2014 ' + custom + ' custom ID' + (custom === 1 ? '' : 's') + ' kept.' : '.'));
     });
     $('btnAddPile').addEventListener('click', function () { setTool('pile'); });
 
@@ -1356,6 +1490,10 @@
       case 'm': case 'M': setTool('measure'); break;
       case 'x': case 'X': setTool('erase'); break;
       case 'f': case 'F': fit(); break;
+      case 'F2':
+        e.preventDefault();
+        if (!focusRename()) toast('Select a stockpile or a location first.');
+        break;
       case 'Enter':
         if (ui.tool === 'pile' && ui.draft.length > 2) closeDraft();
         break;

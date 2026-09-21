@@ -424,7 +424,7 @@ button, input, select, textarea { font: inherit; color: inherit; }
 
 .row {
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto;
+  grid-template-columns: auto minmax(0, 1fr) auto auto;
   align-items: center;
   gap: 8px;
   padding: 6px 8px;
@@ -461,6 +461,24 @@ button, input, select, textarea { font: inherit; color: inherit; }
 .row-tag.is-warn { background: var(--warn-soft); color: var(--warn); }
 .row-tag.is-crit { background: var(--crit-soft); color: var(--crit); }
 
+.row-edit {
+  appearance: none; border: 0; background: transparent;
+  color: var(--ink-3);
+  padding: 4px; margin: -4px -2px -4px 0;
+  border-radius: 5px; cursor: pointer;
+  display: grid; place-items: center;
+  opacity: .55;
+  transition: opacity .12s, background .12s, color .12s;
+}
+.row-edit svg { width: 14px; height: 14px; display: block; }
+.row:hover .row-edit { opacity: 1; }
+.row-edit:hover { background: var(--surface-3); color: var(--ink); opacity: 1; }
+.row-edit:focus-visible { opacity: 1; }
+.row.is-active .row-edit { opacity: 1; color: var(--accent); }
+
+/* Marks an ID the user typed, which survives Renumber. */
+.row-pin { color: var(--accent); font-size: 15px; line-height: 1; margin-left: 4px; }
+
 /* ---------- Bands table ---------- */
 .bands { width: 100%; border-collapse: collapse; font-size: 12.5px; }
 .bands th {
@@ -479,6 +497,24 @@ button, input, select, textarea { font: inherit; color: inherit; }
   cursor: pointer; padding: 2px 4px; font-size: 15px; line-height: 1;
 }
 .bands .x:hover { color: var(--crit); }
+
+.subgroup { display: grid; gap: 8px; }
+.sub-title {
+  font-size: 12px; font-weight: 600; color: var(--ink-2);
+}
+.field-trio { display: grid; grid-template-columns: 1.4fr 1fr 1fr; gap: 8px; }
+
+.preview {
+  font-family: "IBM Plex Mono", ui-monospace, monospace;
+  font-size: 12px;
+  padding: 6px 9px;
+  border-radius: 5px;
+  background: var(--surface-2);
+  color: var(--ink-2);
+  overflow-x: auto;
+  white-space: nowrap;
+}
+.preview b { color: var(--ink); font-weight: 500; }
 
 .rule-readout {
   font-size: 12px; line-height: 1.45;
@@ -641,6 +677,7 @@ button, input, select, textarea { font: inherit; color: inherit; }
 @media (max-width: 520px) {
   .topbar-actions .btn { padding: 5px 8px; font-size: 12px; }
   .field-row { grid-template-columns: 1fr; }
+  .field-trio { grid-template-columns: 1fr 1fr; }
   .summary { grid-template-columns: 1fr; }
   .brand-name { font-size: 14px; }
 }

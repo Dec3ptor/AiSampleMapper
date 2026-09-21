@@ -71,6 +71,30 @@ ground size of a screen pixel at any zoom. Zooming past 1:1 magnifies but adds n
 detail — the example site ships as a 750 x 2000 clipping, so load your own tile
 to see what the imagery really holds.
 
+## Naming
+
+Set the convention once under **Plan → Naming** and it applies as you draw.
+
+**Stockpiles and windrows** take a prefix, a digit count and a starting number —
+`WR` + 2 digits gives `WR01`, `WR02`, `WR03`. A preview shows the result as you
+type. Every new outline takes the next free number on its own, so drawing a run
+of windrows numbers itself. **Renumber in map order** re-applies the convention
+down the site, north to south, which is usually what you want after adding or
+deleting a few.
+
+**Sample locations** work the same way, either numbered across the whole site
+(`SP01`, `SP02`) or within each pile (`WR01-01`, `WR01-02`), which is the more
+useful form once a pile has its own name.
+
+Anything you type yourself is pinned: renumbering leaves it alone, reports how
+many it kept, and routes around its number so two features can never share a
+name. A pinned sample ID shows a dot in the list, and the sample editor offers to
+hand it back to automatic numbering.
+
+To rename one thing: click it in the list or on the map and edit the **Name** or
+**ID** box, use the pencil on any list row, press <kbd>F2</kbd>, or double-click
+it on the map.
+
 ## Sampling density
 
 The rule is yours to set, under **Plan**:
@@ -115,6 +139,7 @@ positional accuracy of the source imagery.
 | --- | --- |
 | `V` `P` `S` `M` `X` | Select, Stockpile, Sample, Measure, Erase |
 | `F` | Zoom to fit |
+| `F2` | Rename the selected stockpile or location |
 | `Enter` | Close the outline being drawn |
 | `Esc` | Cancel the outline, measurement or pending click |
 | `Backspace` | Remove the last vertex, or delete the selection |

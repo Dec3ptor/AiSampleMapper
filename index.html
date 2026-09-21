@@ -193,7 +193,7 @@
           <div class="group">
             <div class="group-head">
               <h3 class="group-title">Sample locations <span class="count-badge" id="countSamples">0</span></h3>
-              <button class="btn btn-sm" id="btnRecode" type="button" title="Renumber every location in map order">Renumber</button>
+              <button class="btn btn-sm" id="btnRecode" type="button" title="Renumber in map order — IDs you typed yourself are kept">Renumber</button>
             </div>
             <div class="seg" id="sampleFilter" role="group" aria-label="Filter samples">
               <button class="seg-btn is-active" data-filter="all" type="button">All</button>
@@ -260,14 +260,34 @@
           </div>
 
           <div class="group">
-            <h3 class="group-title">Location IDs</h3>
-            <div class="field-row">
-              <label class="field"><span>Prefix</span><input id="fPrefix" type="text" maxlength="8"></label>
-              <label class="field"><span>Digits</span><input id="fPad" type="number" min="1" max="4" step="1"></label>
+            <h3 class="group-title">Naming</h3>
+
+            <div class="subgroup">
+              <span class="sub-title">Stockpiles &amp; windrows</span>
+              <div class="field-trio">
+                <label class="field"><span>Prefix</span><input id="fPilePrefix" type="text" maxlength="14" placeholder="WR"></label>
+                <label class="field"><span>Digits</span><input id="fPilePad" type="number" min="1" max="4" step="1"></label>
+                <label class="field"><span>Start at</span><input id="fPileStart" type="number" min="0" step="1"></label>
+              </div>
+              <div class="preview" id="pilePreview"></div>
+              <button class="btn btn-sm btn-block" id="btnRenumberPiles" type="button">Renumber in map order</button>
+              <p class="hint">New outlines take the next free number automatically. Renumbering runs down
+                the site, north to south, and keeps any name you typed yourself.</p>
             </div>
-            <div class="seg seg-wide" id="idScope" role="group" aria-label="Numbering">
-              <button class="seg-btn is-active" data-scope="site" type="button">Across the site</button>
-              <button class="seg-btn" data-scope="pile" type="button">Within each pile</button>
+
+            <div class="divider"></div>
+
+            <div class="subgroup">
+              <span class="sub-title">Sample locations</span>
+              <div class="field-row">
+                <label class="field"><span>Prefix</span><input id="fPrefix" type="text" maxlength="8"></label>
+                <label class="field"><span>Digits</span><input id="fPad" type="number" min="1" max="4" step="1"></label>
+              </div>
+              <div class="seg seg-wide" id="idScope" role="group" aria-label="Numbering">
+                <button class="seg-btn is-active" data-scope="site" type="button">Across the site</button>
+                <button class="seg-btn" data-scope="pile" type="button">Within each pile</button>
+              </div>
+              <div class="preview" id="samplePreview"></div>
             </div>
           </div>
 

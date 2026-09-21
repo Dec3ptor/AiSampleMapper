@@ -29,6 +29,9 @@
       rule: ASM.plan.defaultRule(),
       qa: ASM.plan.defaultQA(),
       settings: {
+        pilePrefix: 'SP',       // stockpile / windrow naming convention
+        pilePad: 1,             // 1 = WR1, 2 = WR01, 3 = WR001
+        pileStart: 1,
         idPrefix: 'SP',
         idScope: 'site',        // 'site' = SP01.. across the job, 'pile' = per stockpile
         pad: 2,
@@ -93,12 +96,66 @@
   function canRedo() { return redoStack.length > 0; }
 
   /* --- Stockpiles -------------------------------------------------------- */
+
+  /** Build a stockpile name from the project's convention, e.g. WR07. */
+  function formatPileName(n) {
+    var st = state.project.settings;
+    var prefix = st.pilePrefix == null ? 'SP' : st.pilePrefix;
+    var pad = Math.max(1, Math.min(4, st.pilePad || 1));
+    return prefix + String(n).padStart(pad, '0');
+  }
+
+  /* One past the highest number in use for the current prefix. Reading it off
+   * the existing names rather than a counter means changing the prefix starts a
+   * fresh run, and a number is never handed to two piles at once. Deleting the
+   * last pile frees its number; deleting one from the middle leaves the gap,
+   * so a windrow number never silently moves to different material. */
+  function nextPileNumber() {
+    var st = state.project.settings;
+    var prefix = st.pilePrefix == null ? 'SP' : st.pilePrefix;
+    var start = isFinite(st.pileStart) ? Math.round(st.pileStart) : 1;
+    var re = new RegExp('^' + prefix.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '0*(\\d+)$');
+    var max = start - 1;
+    state.project.stockpiles.forEach(function (pile) {
+      var m = re.exec(pile.name || '');
+      if (m) max = Math.max(max, parseInt(m[1], 10));
+    });
+    return max + 1;
+  }
+
+  /** Re-apply the convention to every stockpile, top of the site downwards.
+   *  Names the user typed are left alone and keep their place. */
+  function renumberPiles() {
+    var p = state.project;
+    var start = isFinite(p.settings.pileStart) ? Math.round(p.settings.pileStart) : 1;
+    var order = p.stockpiles.slice().sort(function (a, b) {
+      var ca = ASM.geom.centroid(a.polygon), cb = ASM.geom.centroid(b.polygon);
+      return (ca[1] - cb[1]) || (ca[0] - cb[0]);
+    });
+    // Never hand out a number that a hand-typed name already occupies.
+    var taken = {};
+    p.stockpiles.forEach(function (pile) {
+      if (pile.nameLocked && pile.name) taken[pile.name] = true;
+    });
+
+    var n = start, changed = 0, kept = 0;
+    order.forEach(function (pile) {
+      if (pile.nameLocked) { kept++; return; }
+      while (taken[formatPileName(n)]) n++;
+      pile.name = formatPileName(n);
+      n++; changed++;
+    });
+    recode();   // sample ids can be derived from the pile name
+    return { changed: changed, kept: kept };
+  }
+
   function addPile(polygon) {
     var p = state.project;
     p.seq.pile += 1;
     var pile = {
       id: 'pile-' + p.seq.pile,
-      name: 'SP' + p.seq.pile,
+      name: formatPileName(nextPileNumber()),
+      nameLocked: false,
       material: '',
       polygon: polygon,
       heightM: 1.5,
@@ -353,6 +410,7 @@
     on: on, emit: emit,
     checkpoint: checkpoint, undo: undo, redo: redo, canUndo: canUndo, canRedo: canRedo,
     addPile: addPile, pileById: pileById, removePile: removePile, pileStats: pileStats,
+    formatPileName: formatPileName, nextPileNumber: nextPileNumber, renumberPiles: renumberPiles,
     addSample: addSample, sampleById: sampleById, removeSample: removeSample, pileAt: pileAt,
     recode: recode, totals: totals,
     saveLocal: saveLocal, loadLocal: loadLocal, clearLocal: clearLocal,
