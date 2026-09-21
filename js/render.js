@@ -251,9 +251,25 @@
     ctx.fillRect(0, 0, o.width, o.height);
 
     if (o.image) {
-      ctx.imageSmoothingEnabled = view.scale < 2;
-      ctx.drawImage(o.image, view.tx, view.ty, o.image.width * view.scale, o.image.height * view.scale);
-      ctx.imageSmoothingEnabled = true;
+      // Blit only the source pixels that can land on the canvas. At 20x on a
+      // 35 megapixel ortho tile this is a few thousand source pixels instead of
+      // all of them, which keeps the sampling exact as well as fast.
+      var iw = o.image.width, ih = o.image.height, z = view.scale;
+      var sx0 = Math.max(0, Math.floor((0 - view.tx) / z));
+      var sy0 = Math.max(0, Math.floor((0 - view.ty) / z));
+      var sx1 = Math.min(iw, Math.ceil((o.width - view.tx) / z));
+      var sy1 = Math.min(ih, Math.ceil((o.height - view.ty) / z));
+      if (sx1 > sx0 && sy1 > sy0) {
+        // Smooth when shrinking (a high-quality downsample beats dropped
+        // pixels); above 1:1 show the real pixels unless asked otherwise.
+        var smooth = z < 1 || p.settings.interpolation === 'smooth';
+        ctx.imageSmoothingEnabled = smooth;
+        if (smooth) ctx.imageSmoothingQuality = 'high';
+        ctx.drawImage(o.image,
+          sx0, sy0, sx1 - sx0, sy1 - sy0,
+          view.tx + sx0 * z, view.ty + sy0 * z, (sx1 - sx0) * z, (sy1 - sy0) * z);
+        ctx.imageSmoothingEnabled = true;
+      }
     }
 
     // Stockpiles

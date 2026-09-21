@@ -7,6 +7,9 @@ schedule, the GIS layers and a report figure.
 
 Everything runs in the browser. The aerial image never leaves the machine.
 
+**Live: <https://dec3ptor.github.io/AiSampleMapper/>** — deployed from this branch
+by `.github/workflows/pages.yml` on every push.
+
 ## Running it
 
 Open `index.html` — double-click it, or serve the folder:
@@ -44,6 +47,29 @@ No build step, no dependencies. The scripts are plain `<script>` tags so the
    *Place n locations* for a systematic grid, stratified random or simple random
    spread, kept clear of the toe of the pile.
 6. **Export.**
+
+## Image resolution
+
+The photo is used at full resolution, whatever its size:
+
+- Dropped files are decoded with `createImageBitmap`, which is not subsampled by
+  the browser the way a plain `<img>` is on very large images — the usual cause
+  of a full ortho tile quietly losing detail on iOS.
+- The canvas renders at the display's real pixel density (up to 3x), bounded so
+  the backing store stays under about 16 megapixels.
+- Each frame blits only the source pixels that can land on screen, so zooming
+  into a 35 megapixel tile costs the same as a small one and nothing is
+  resampled on the way.
+- Above 1:1 the real ortho pixels are shown rather than a smoothed guess. Switch
+  to **Smoothed** under *Setup → Aerial image* if you prefer interpolation.
+  Zooming out always uses a high-quality downsample.
+- Zoom runs to 240x. **1:1** in the corner of the map snaps to one photo pixel
+  per screen pixel.
+
+At 10 cm GSD, 1:1 is one pixel per 10 cm of ground, and the status bar shows the
+ground size of a screen pixel at any zoom. Zooming past 1:1 magnifies but adds no
+detail — the example site ships as a 750 x 2000 clipping, so load your own tile
+to see what the imagery really holds.
 
 ## Sampling density
 
@@ -124,6 +150,7 @@ Save the project file for anything you need to keep.
 ## Layout
 
 ```
+.github/workflows/pages.yml  deploys the site to GitHub Pages on push
 index.html                 page shell (a complete document; opens from disk)
 css/app.css                tokens, app shell, light and dark themes
 js/geo.js                  NZTM2000 <-> WGS84, world files, the georef model

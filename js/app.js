@@ -40,7 +40,12 @@
 
   function sizeCanvas() {
     var r = el.stage.getBoundingClientRect();
-    dpr = Math.min(window.devicePixelRatio || 1, 2);
+    // Render at the display's true pixel density so a zoomed-in ortho is as
+    // sharp as the screen allows, but keep the backing store under ~16 MP so a
+    // 4K panel does not cost hundreds of megabytes.
+    var want = window.devicePixelRatio || 1;
+    var area = Math.max(1, r.width * r.height);
+    dpr = Math.max(1, Math.min(want, 3, Math.sqrt(16e6 / area)));
     canvas.width = Math.max(1, Math.round(r.width * dpr));
     canvas.height = Math.max(1, Math.round(r.height * dpr));
     requestDraw();
@@ -320,7 +325,7 @@
     ev.preventDefault();
     var r = canvas.getBoundingClientRect();
     var factor = Math.pow(0.999, ev.deltaY * (ev.deltaMode === 1 ? 18 : 1));
-    R.zoomAt(view, ev.clientX - r.left, ev.clientY - r.top, factor, 0.02, 120);
+    R.zoomAt(view, ev.clientX - r.left, ev.clientY - r.top, factor, 0.01, 240);
     updateStatusZoom();
     requestDraw();
   }
@@ -371,19 +376,38 @@
   /* ===================== Files ===================== */
 
   function loadImageFromBlob(blob, name, keepProject) {
-    var url = URL.createObjectURL(blob);
-    var img = new Image();
-    img.onload = function () {
-      S.image = img;
-      S.project.image = { name: name, width: img.width, height: img.height };
+    function adopt(bitmap) {
+      if (S.image && S.image.close) S.image.close();
+      S.image = bitmap;
+      S.project.image = { name: name, width: bitmap.width, height: bitmap.height };
       if (!keepProject) store.saveImageBlob(blob, S.project.image);
       el.dropzone.hidden = true;
       fit();
       renderAll();
       updateHud();
-    };
-    img.onerror = function () { toast('That image could not be read.', true); URL.revokeObjectURL(url); };
-    img.src = url;
+      var mp = bitmap.width * bitmap.height / 1e6;
+      if (mp >= 20) toast(mp.toFixed(0) + ' MP loaded at full resolution.');
+    }
+
+    function viaImageElement() {
+      var url = URL.createObjectURL(blob);
+      var img = new Image();
+      img.onload = function () { adopt(img); };
+      img.onerror = function () {
+        toast('That image could not be read.', true);
+        URL.revokeObjectURL(url);
+      };
+      img.src = url;
+    }
+
+    // createImageBitmap decodes off the main thread and, unlike an <img>, is
+    // never subsampled by the browser on very large images -- which is exactly
+    // what happens to a full ortho tile on iOS otherwise.
+    if (window.createImageBitmap) {
+      createImageBitmap(blob).then(adopt).catch(viaImageElement);
+    } else {
+      viaImageElement();
+    }
   }
 
   function loadExample() {
@@ -519,7 +543,8 @@
     if (document.activeElement !== el.fMppx) el.fMppx.value = g.mppx != null ? g.mppx : '';
 
     el.imgStat.textContent = p.image
-      ? p.image.name + ' — ' + p.image.width + ' × ' + p.image.height + ' px'
+      ? p.image.name + ' — ' + p.image.width + ' × ' + p.image.height + ' px (' +
+        (p.image.width * p.image.height / 1e6).toFixed(1) + ' MP)'
       : 'No image loaded';
 
     var state = el.georefState;
@@ -541,6 +566,10 @@
         esc(g.source) + '. Distances, areas and volumes are correct; exports carry a local grid ' +
         'rather than NZTM coordinates. Pin a known coordinate to fix that.';
     }
+
+    document.querySelectorAll('#interpMode .seg-btn').forEach(function (b) {
+      b.classList.toggle('is-active', b.dataset.interp === (p.settings.interpolation || 'crisp'));
+    });
 
     el.scaleChip.classList.toggle('is-set', geo.hasScale(g));
     el.scaleChipText.textContent = geo.hasScale(g)
@@ -1042,6 +1071,23 @@
     $('btnFit').addEventListener('click', fit);
     $('btnZoomIn').addEventListener('click', function () { zoomStep(1.35); });
     $('btnZoomOut').addEventListener('click', function () { zoomStep(1 / 1.35); });
+    $('btnZoom11').addEventListener('click', function () {
+      if (!S.image) return;
+      var r = el.stage.getBoundingClientRect();
+      R.zoomAt(view, r.width / 2, r.height / 2, 1 / view.scale, 0.01, 240);
+      updateStatusZoom();
+      requestDraw();
+      toast('Actual image pixels — 1 photo pixel per screen pixel.');
+    });
+
+    document.querySelectorAll('#interpMode .seg-btn').forEach(function (b) {
+      b.addEventListener('click', function () {
+        S.project.settings.interpolation = b.dataset.interp;
+        store.saveLocal();
+        renderSetup();
+        requestDraw();
+      });
+    });
 
     // Tabs
     document.querySelectorAll('.tab').forEach(function (t) {
@@ -1281,7 +1327,7 @@
 
   function zoomStep(f) {
     var r = el.stage.getBoundingClientRect();
-    R.zoomAt(view, r.width / 2, r.height / 2, f, 0.02, 120);
+    R.zoomAt(view, r.width / 2, r.height / 2, f, 0.01, 240);
     updateStatusZoom();
     requestDraw();
   }

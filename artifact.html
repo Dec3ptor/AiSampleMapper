@@ -87,6 +87,7 @@
       <div class="zoomctl">
         <button class="zbtn" id="btnZoomIn" type="button" aria-label="Zoom in">+</button>
         <button class="zbtn" id="btnZoomOut" type="button" aria-label="Zoom out">−</button>
+        <button class="zbtn zbtn-label" id="btnZoom11" type="button" title="Actual image pixels (100%)">1:1</button>
       </div>
     </main>
 
@@ -126,6 +127,13 @@
               <button class="btn btn-block" id="btnSample" type="button">Example site</button>
             </div>
             <p class="hint">Everything stays in this browser. The image is never uploaded.</p>
+            <div class="seg seg-wide" id="interpMode" role="group" aria-label="Rendering past 1:1">
+              <button class="seg-btn is-active" data-interp="crisp" type="button">Crisp pixels</button>
+              <button class="seg-btn" data-interp="smooth" type="button">Smoothed</button>
+            </div>
+            <p class="hint">How the photo is drawn past 1:1. Crisp shows the real ortho pixels, which is
+              what you want when placing a marker precisely. Zooming out always uses a high-quality
+              downsample.</p>
           </div>
 
           <div class="group">

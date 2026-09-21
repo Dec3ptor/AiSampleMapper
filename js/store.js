@@ -37,7 +37,9 @@
         defaultDepthFrom: 0,
         defaultDepthTo: 0.5,
         markerScale: 1,
-        showLabels: true
+        showLabels: true,
+        interpolation: 'crisp'   // 'crisp' shows real pixels above 1:1
+
       },
       seq: { pile: 0, sample: 0 }
     };
